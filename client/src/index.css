@@ -1,0 +1,212 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(0, 0%, 13%);
+  --card: hsl(180, 3%, 97%);
+  --card-foreground: hsl(0, 0%, 13%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(0, 0%, 13%);
+  --primary: hsl(207, 90%, 40%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --primary-dark: hsl(207, 90%, 35%);
+  --secondary: hsl(123, 48%, 37%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --secondary-dark: hsl(123, 48%, 32%);
+  --muted: hsl(210, 40%, 94%);
+  --muted-foreground: hsl(215, 16%, 47%);
+  --accent: hsl(210, 40%, 94%);
+  --accent-foreground: hsl(207, 90%, 40%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(214, 32%, 91%);
+  --input: hsl(214, 32%, 91%);
+  --ring: hsl(207, 90%, 40%);
+  --surface: hsl(0, 0%, 98%);
+  --text-primary: hsl(0, 0%, 13%);
+  --text-secondary: hsl(215, 16%, 47%);
+  --success: hsl(123, 48%, 37%);
+  --warning: hsl(35, 91%, 49%);
+  --error: hsl(0, 84%, 60%);
+  --chart-1: hsl(207, 90%, 40%);
+  --chart-2: hsl(123, 48%, 37%);
+  --chart-3: hsl(35, 91%, 49%);
+  --chart-4: hsl(147, 78%, 42%);
+  --chart-5: hsl(341, 75%, 51%);
+  --sidebar: hsl(180, 3%, 97%);
+  --sidebar-foreground: hsl(0, 0%, 13%);
+  --sidebar-primary: hsl(207, 90%, 40%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(210, 40%, 94%);
+  --sidebar-accent-foreground: hsl(207, 90%, 40%);
+  --sidebar-border: hsl(214, 32%, 91%);
+  --sidebar-ring: hsl(207, 90%, 40%);
+  --font-sans: 'Roboto', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: hsl(222, 84%, 5%);
+  --foreground: hsl(210, 40%, 98%);
+  --card: hsl(222, 84%, 5%);
+  --card-foreground: hsl(210, 40%, 98%);
+  --popover: hsl(222, 84%, 5%);
+  --popover-foreground: hsl(210, 40%, 98%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(222, 84%, 5%);
+  --primary-dark: hsl(207, 90%, 49%);
+  --secondary: hsl(217, 32%, 17%);
+  --secondary-foreground: hsl(210, 40%, 98%);
+  --secondary-dark: hsl(217, 32%, 12%);
+  --muted: hsl(217, 32%, 17%);
+  --muted-foreground: hsl(215, 20%, 65%);
+  --accent: hsl(217, 32%, 17%);
+  --accent-foreground: hsl(210, 40%, 98%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+  --border: hsl(217, 32%, 17%);
+  --input: hsl(217, 32%, 17%);
+  --ring: hsl(207, 90%, 54%);
+  --surface: hsl(222, 84%, 5%);
+  --text-primary: hsl(210, 40%, 98%);
+  --text-secondary: hsl(215, 20%, 65%);
+  --success: hsl(123, 48%, 37%);
+  --warning: hsl(35, 91%, 49%);
+  --error: hsl(0, 84%, 60%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-surface text-text-primary font-roboto antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+  }
+
+  .text-primary {
+    color: var(--primary);
+  }
+
+  .text-primary-dark {
+    color: var(--primary-dark);
+  }
+
+  .text-secondary {
+    color: var(--secondary);
+  }
+
+  .text-secondary-dark {
+    color: var(--secondary-dark);
+  }
+
+  .text-text-primary {
+    color: var(--text-primary);
+  }
+
+  .text-text-secondary {
+    color: var(--text-secondary);
+  }
+
+  .text-success {
+    color: var(--success);
+  }
+
+  .text-warning {
+    color: var(--warning);
+  }
+
+  .text-error {
+    color: var(--error);
+  }
+
+  .bg-primary {
+    background-color: var(--primary);
+  }
+
+  .bg-primary-dark {
+    background-color: var(--primary-dark);
+  }
+
+  .bg-secondary {
+    background-color: var(--secondary);
+  }
+
+  .bg-secondary-dark {
+    background-color: var(--secondary-dark);
+  }
+
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .bg-success {
+    background-color: var(--success);
+  }
+
+  .bg-warning {
+    background-color: var(--warning);
+  }
+
+  .bg-error {
+    background-color: var(--error);
+  }
+
+  .hover\:bg-primary-dark:hover {
+    background-color: var(--primary-dark);
+  }
+
+  .hover\:bg-secondary-dark:hover {
+    background-color: var(--secondary-dark);
+  }
+
+  .hover\:text-primary-dark:hover {
+    color: var(--primary-dark);
+  }
+
+  .hover\:text-text-primary:hover {
+    color: var(--text-primary);
+  }
+
+  .border-primary {
+    border-color: var(--primary);
+  }
+
+  .font-roboto {
+    font-family: var(--font-sans);
+  }
+
+  /* Custom utility classes for the healthcare theme */
+  .bg-primary\/10 {
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+
+  .bg-secondary\/10 {
+    background-color: color-mix(in srgb, var(--secondary) 10%, transparent);
+  }
+
+  .bg-success\/10 {
+    background-color: color-mix(in srgb, var(--success) 10%, transparent);
+  }
+
+  .bg-warning\/10 {
+    background-color: color-mix(in srgb, var(--warning) 10%, transparent);
+  }
+
+  .bg-primary\/5 {
+    background-color: color-mix(in srgb, var(--primary) 5%, transparent);
+  }
+
+  .bg-primary\/20 {
+    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+}
