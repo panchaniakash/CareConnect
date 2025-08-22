@@ -1,0 +1,111 @@
+TASK
+You are an expert full-stack engineer and project scaffolding assistant. Generate a complete, runnable, full-stack application named "{{APP_NAME}}" that I can run locally (on my laptop) using Docker Compose or plain npm scripts. The app must be production-sensible, but optimized for easy local setup and demo.
+
+GOALS (must meet)
+1. Full stack: React + TypeScript frontend (Vite) and Node.js + TypeScript backend (Express or NestJS).
+2. Postgres database with migrations using Prisma.
+3. Authentication: JWT-based email+password auth, plus basic role (admin, user).
+4. One core domain: Patient / Appointment CRUD (simplified from CareConnect). UI should allow create/search patient, schedule appointment, and show reminders queue preview.
+5. Ability to run locally using `docker-compose up --build` or with `npm run dev` (no cloud required).
+6. Include Dockerfiles, docker-compose.yml, .env.example, README with exact commands, seed script, unit tests, and basic CI (GitHub Actions workflow).
+7. Security & ops basics: .env secrets usage, key things not committed, health endpoints, and example observability logs.
+8. Deliver clean repo layout, typed APIs (OpenAPI stub), and acceptance test script.
+
+OUTPUT FORMAT
+1. Create a single ZIP-style file listing of the repo root showing all files and folder tree (first).  
+2. Then output the full contents for these key files exactly: 
+   - package.json (root), tsconfigs, docker-compose.yml, Dockerfiles (api & frontend), Prisma schema, src for backend (index.ts, routes, controllers, services, models), src for frontend (main.tsx, App.tsx, pages: Login, Dashboard, Patients, Schedule), .env.example, README.md, seed script (TypeScript), simple Jest tests, and GitHub Actions workflow file.
+3. Where files are long, provide full and runnable code. Do not omit required imports. Keep code ready to paste into files.
+4. At the end, include step-by-step local run instructions and a troubleshooting checklist.
+
+CONSTRAINTS & DECISIONS (apply everywhere)
+- Use Node 20, npm package manager.
+- Use TypeScript everywhere.
+- Use Prisma for DB layer and migrations.
+- Use Vite + React + TypeScript for frontend.
+- Use Express + express-async-handler for backend.
+- Use JWT auth with bcrypt for passwords.
+- Use SQLite fallback for quick local run if Postgres unavailable (but primary in docker-compose is Postgres).
+- All endpoints must require `X-Request-Id` header (or auto-generate if missing).
+- Keep secrets in `.env`, provide `.env.example` with placeholders only.
+- No external paid services; use nodemailer with Mailtrap preview config for local email.
+- Provide tests for: patient create/search, appointment create, auth login.
+- Keep UX minimal but usable: quick search by phone or name, create patient modal, schedule appointment modal.
+
+ACCEPTANCE CRITERIA (automatable)
+- `docker-compose up --build` yields two services: api and frontend, and a Postgres DB. Frontend served on http://localhost:5173 and backend on http://localhost:3000.
+- `npm run seed` populates two demo clinics and 20 patients and shows appointments.
+- `npm test` runs Jest unit tests and all pass.
+- Health endpoint `GET /health/ready` returns 200 JSON {status: "ready"}.
+- A README contains exact commands and example API calls (curl) to create a user, login, create patient, and schedule appointment.
+
+DETAILED FILE/BEHAVIOR REQUIREMENTS
+- Repo layout:
+  /frontend
+    /src (React)
+    vite config, package.json
+  /api
+    /src (Express TS)
+    prisma schema, migrations, package.json
+  /docker-compose.yml
+  /README.md
+  /.env.example
+  /scripts/seed.ts
+  /.github/workflows/ci.yml
+
+- Backend API:
+  - Endpoints:
+    POST /api/auth/register {email,password,name,role}
+    POST /api/auth/login {email,password} -> {token}
+    GET /api/health/ready
+    GET /api/patients?query=&limit=&offset=
+    POST /api/patients
+    GET /api/patients/:id
+    POST /api/appointments
+    GET /api/appointments?clinicId=&day=
+  - Middlewares: requestId, logging, error handler, auth middleware (bearer JWT), role guard.
+  - Prisma models: Clinic, User, Patient, Appointment, OutboundMessage (minimal fields)
+  - Sample seed: 2 clinics (Ahmedabad), 6 clinicians, 20 Indian names with E.164 phones, appointments in next 7 days.
+
+- Frontend:
+  - Login page, Dashboard showing today's appointments, Patients list with quick search, Patient 360 minimal page, Schedule day view.
+  - QuickSearch component that calls GET /api/patients?query=.
+  - Use fetch + Authorization bearer token stored in localStorage.
+
+- Docker:
+  - api Dockerfile: multi-stage build, expose 3000, copy prisma client, run prisma migrate on container start if MIGRATE=true.
+  - frontend Dockerfile: build and serve with basic static server (serve or npm run preview).
+  - docker-compose with Postgres volume.
+
+DETAILED LOCAL RUN STEPS (must be in README)
+- Install: `npm install` at root optional if using Docker. Prefer using Docker Compose.
+- Docker compose: `docker-compose up --build`
+- After containers up: `docker exec -it <api-container> npm run seed`
+- Open http://localhost:5173, register or use seeded credentials.
+- Provide curl examples to test endpoints.
+
+DEBUG & TROUBLESHOOTING CHECKLIST
+- Postgres connection string issues -> check .env and docker logs.
+- Prisma client generation -> run `npx prisma generate`.
+- Port conflicts -> change ports in docker-compose.
+- CORS -> frontend to backend CORS allowed.
+
+SECURITY NOTES
+- Do not commit .env with secrets. Use .env.example for placeholders.
+- Hash passwords with bcrypt (saltRounds=12).
+- Short JWT lifetime (e.g., 1h) and refresh token stubbed for later.
+
+PROGRESSIVE PROMPTS (for iterative scaffolding)
+1. "Scaffold project: create the folder tree, package.json files, tsconfig.json, and minimal server & client bootstraps."  
+2. "Implement Prisma schema & initial migration files, plus seed.ts."  
+3. "Implement auth controllers, middleware, password hashing, login and register flows."  
+4. "Implement patient & appointment CRUD endpoints and tests."  
+5. "Implement frontend pages and connect to API, including login and patient search."  
+6. "Create Dockerfiles and docker-compose, make sure `docker-compose up --build` runs db + api + frontend."  
+7. "Produce README with exact commands and CI workflow."
+
+ADDITIONAL: produce a short checklist of tests + commands to run to validate everything on my local machine.
+
+OUTPUT: Provide the full project tree and file contents in the response.
+
+END TASK
