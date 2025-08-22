@@ -8,6 +8,7 @@ import LoginPage from "@/pages/login";
 import DashboardPage from "@/pages/dashboard";
 import PatientsPage from "@/pages/patients";
 import SchedulePage from "@/pages/schedule";
+import ReportsPage from "@/pages/reports";
 import Header from "@/components/layout/header";
 import NotFound from "@/pages/not-found";
 
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/dashboard" component={() => <ProtectedRoute component={DashboardPage} />} />
         <Route path="/patients" component={() => <ProtectedRoute component={PatientsPage} />} />
         <Route path="/schedule" component={() => <ProtectedRoute component={SchedulePage} />} />
+        <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
         <Route component={NotFound} />
       </Switch>
     </div>
