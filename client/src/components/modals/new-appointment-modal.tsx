@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { insertAppointmentSchema, type InsertAppointment } from "@shared/schema";
+import { insertAppointmentSchema, type InsertAppointment, type Clinic } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { getAuthHeaders, getCurrentUser } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -40,9 +40,17 @@ interface NewAppointmentModalProps {
 
 const extendedSchema = insertAppointmentSchema.extend({
   patientId: insertAppointmentSchema.shape.patientId.min(1, "Patient is required"),
+  clinicId: insertAppointmentSchema.shape.clinicId.min(1, "Clinic is required"),
   appointmentDate: insertAppointmentSchema.shape.appointmentDate.refine(
-    (date) => date && date > new Date(),
-    "Appointment date must be in the future"
+    (date) => {
+      if (!date) return false;
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const appointmentDate = new Date(date);
+      appointmentDate.setHours(0, 0, 0, 0);
+      return appointmentDate >= now;
+    },
+    "Appointment date must be today or in the future"
   ),
 });
 
@@ -57,18 +65,32 @@ export default function NewAppointmentModal({ open, onOpenChange }: NewAppointme
   const user = getCurrentUser();
   const [patientSearch, setPatientSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
 
   const form = useForm<InsertAppointment>({
     resolver: zodResolver(extendedSchema),
     defaultValues: {
       patientId: "",
-      clinicId: "clinic-1", // This should come from user context
+      clinicId: "",
       doctorId: user?.id || "",
       appointmentDate: new Date(),
       duration: 30,
       type: "consultation" as any,
       status: "scheduled" as any,
       notes: "",
+    },
+  });
+
+  // Fetch clinics
+  const { data: clinics } = useQuery({
+    queryKey: ["/api/clinics"],
+    queryFn: async () => {
+      const response = await fetch("/api/clinics", {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch clinics");
+      return response.json();
     },
   });
 
@@ -124,6 +146,15 @@ export default function NewAppointmentModal({ open, onOpenChange }: NewAppointme
   });
 
   const onSubmit = (data: InsertAppointment) => {
+    // Combine date and time into proper Date object
+    if (selectedDate && selectedTime) {
+      const [hours, minutes] = selectedTime.split(":").map(Number);
+      const appointmentDateTime = new Date(selectedDate);
+      appointmentDateTime.setHours(hours, minutes, 0, 0);
+      data.appointmentDate = appointmentDateTime;
+    }
+    
+    console.log("Submitting appointment data:", data);
     createAppointmentMutation.mutate(data);
   };
 
@@ -137,14 +168,15 @@ export default function NewAppointmentModal({ open, onOpenChange }: NewAppointme
     form.reset();
     setSelectedPatient(null);
     setPatientSearch("");
+    setSelectedDate("");
+    setSelectedTime("");
     onOpenChange(false);
   };
 
-  const combineDateTime = (date: string, time: string): Date => {
-    const dateObj = new Date(date);
-    const [hours, minutes] = time.split(":").map(Number);
-    dateObj.setHours(hours, minutes, 0, 0);
-    return dateObj;
+  // Get minimum date (today)
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
   };
 
   return (
@@ -200,44 +232,74 @@ export default function NewAppointmentModal({ open, onOpenChange }: NewAppointme
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="appointmentDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium text-text-primary">
-                      Date *
-                    </FormLabel>
+            {/* Clinic Selection */}
+            <FormField
+              control={form.control}
+              name="clinicId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-text-primary">
+                    Clinic *
+                  </FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                        value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                        onChange={(e) => {
-                          const selectedTime = form.getValues("appointmentDate") ? 
-                            new Date(form.getValues("appointmentDate")).toTimeString().split(' ')[0].slice(0, 5) : "09:00";
-                          field.onChange(combineDateTime(e.target.value, selectedTime));
-                        }}
-                        data-testid="input-appointment-date"
-                        className="w-full"
-                      />
+                      <SelectTrigger data-testid="select-clinic">
+                        <SelectValue placeholder="Select Clinic" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                    <SelectContent>
+                      {clinics?.map((clinic: Clinic) => (
+                        <SelectItem key={clinic.id} value={clinic.id}>
+                          {clinic.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label className="text-sm font-medium text-text-primary mb-1">
+                  Appointment Date *
+                </Label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  min={getMinDate()}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    if (e.target.value && selectedTime) {
+                      const [hours, minutes] = selectedTime.split(":").map(Number);
+                      const appointmentDateTime = new Date(e.target.value);
+                      appointmentDateTime.setHours(hours, minutes, 0, 0);
+                      form.setValue("appointmentDate", appointmentDateTime);
+                    }
+                  }}
+                  data-testid="input-appointment-date"
+                  className="w-full"
+                />
+                {!selectedDate && (
+                  <p className="text-sm text-red-500 mt-1">Please select a date</p>
                 )}
-              />
+              </div>
 
               <div>
-                <Label className="text-sm font-medium text-text-primary">
-                  Time *
+                <Label className="text-sm font-medium text-text-primary mb-1">
+                  Appointment Time *
                 </Label>
                 <Select 
+                  value={selectedTime}
                   onValueChange={(time) => {
-                    const currentDate = form.getValues("appointmentDate") ? 
-                      new Date(form.getValues("appointmentDate")).toISOString().split('T')[0] : 
-                      new Date().toISOString().split('T')[0];
-                    form.setValue("appointmentDate", combineDateTime(currentDate, time));
+                    setSelectedTime(time);
+                    if (selectedDate && time) {
+                      const [hours, minutes] = time.split(":").map(Number);
+                      const appointmentDateTime = new Date(selectedDate);
+                      appointmentDateTime.setHours(hours, minutes, 0, 0);
+                      form.setValue("appointmentDate", appointmentDateTime);
+                    }
                   }}
                 >
                   <SelectTrigger data-testid="select-appointment-time">
@@ -255,6 +317,9 @@ export default function NewAppointmentModal({ open, onOpenChange }: NewAppointme
                     ))}
                   </SelectContent>
                 </Select>
+                {!selectedTime && (
+                  <p className="text-sm text-red-500 mt-1">Please select a time</p>
+                )}
               </div>
 
               <FormField
@@ -345,7 +410,7 @@ export default function NewAppointmentModal({ open, onOpenChange }: NewAppointme
               <Button
                 type="submit"
                 className="bg-primary hover:bg-primary-dark"
-                disabled={createAppointmentMutation.isPending || !selectedPatient}
+                disabled={createAppointmentMutation.isPending || !selectedPatient || !selectedDate || !selectedTime || !form.getValues("clinicId")}
                 data-testid="button-schedule-appointment"
               >
                 {createAppointmentMutation.isPending ? "Scheduling..." : "Schedule Appointment"}

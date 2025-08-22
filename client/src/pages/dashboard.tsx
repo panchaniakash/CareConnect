@@ -16,12 +16,11 @@ export default function DashboardPage() {
 
   // Get today's date for filtering appointments
   const today = new Date();
-  const clinicId = "clinic-1"; // This should come from user context in a real app
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["/api/dashboard/stats", { clinicId }],
+    queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard/stats?clinicId=${clinicId}`, {
+      const response = await fetch("/api/dashboard/stats", {
         headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error("Failed to fetch stats");

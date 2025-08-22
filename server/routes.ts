@@ -198,11 +198,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const doctorId = req.user!.id;
       const clinicId = req.query.clinicId as string;
       
-      if (!clinicId) {
-        return res.status(400).json({ message: "Clinic ID is required" });
+      // If no clinic ID provided, get the first available clinic
+      let targetClinicId = clinicId;
+      if (!targetClinicId) {
+        const clinics = await storage.getClinics();
+        if (clinics.length > 0) {
+          targetClinicId = clinics[0].id;
+        } else {
+          return res.status(400).json({ message: "No clinics available" });
+        }
       }
 
-      const stats = await storage.getDashboardStats(doctorId, clinicId);
+      const stats = await storage.getDashboardStats(doctorId, targetClinicId);
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
