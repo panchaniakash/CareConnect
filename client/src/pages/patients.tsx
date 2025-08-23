@@ -11,6 +11,9 @@ import NewPatientModal from "@/components/modals/new-patient-modal";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import PatientsFilterSidebar from "@/components/modals/patients-filter-sidebar";
+import { getCurrentUser } from "@/lib/auth";
+import { hasPermission, canManagePatients, UserRole } from "@/lib/permissions";
 import {
   Table,
   TableBody,
@@ -28,12 +31,21 @@ import {
 
 export default function PatientsPage() {
   const [showPatientModal, setShowPatientModal] = useState(false);
+  const currentUser = getCurrentUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilterSidebar, setShowFilterSidebar] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [showPatientDetails, setShowPatientDetails] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
+  const [filters, setFilters] = useState({
+    status: "",
+    dateRange: { from: undefined, to: undefined },
+    ageRange: { min: "", max: "" },
+    gender: "",
+    clinic: "",
+    hasUpcomingAppointment: false,
+  });
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -127,14 +139,16 @@ export default function PatientsPage() {
             </h2>
             <p className="text-text-secondary">Manage patient records and information</p>
           </div>
-          <Button
-            className="bg-primary hover:bg-primary-dark"
-            onClick={() => setShowPatientModal(true)}
-            data-testid="button-new-patient"
-          >
-            <Plus size={16} className="mr-2" />
-            New Patient
-          </Button>
+          {hasPermission(currentUser?.role as UserRole, 'patients.create') && (
+            <Button
+              className="bg-primary hover:bg-primary-dark"
+              onClick={() => setShowPatientModal(true)}
+              data-testid="button-new-patient"
+            >
+              <Plus size={16} className="mr-2" />
+              New Patient
+            </Button>
+          )}
         </div>
       </div>
 
@@ -296,12 +310,14 @@ export default function PatientsPage() {
                               <DropdownMenuItem onClick={() => handleViewHistory(patient)}>
                                 View History
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => handleDeactivatePatient(patient)}
-                              >
-                                Deactivate
-                              </DropdownMenuItem>
+                              {hasPermission(currentUser?.role as UserRole, 'patients.deactivate') && (
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={() => handleDeactivatePatient(patient)}
+                                >
+                                  Deactivate
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -322,7 +338,7 @@ export default function PatientsPage() {
                             : "Get started by adding a new patient."
                           }
                         </p>
-                        {!searchQuery && (
+                        {!searchQuery && hasPermission(currentUser?.role as UserRole, 'patients.create') && (
                           <div className="mt-4">
                             <Button
                               onClick={() => setShowPatientModal(true)}
@@ -407,6 +423,16 @@ export default function PatientsPage() {
       <NewPatientModal
         open={showPatientModal}
         onOpenChange={setShowPatientModal}
+      />
+      
+      <PatientsFilterSidebar
+        open={showFilterSidebar}
+        onOpenChange={setShowFilterSidebar}
+        filters={filters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          setCurrentPage(1); // Reset to first page when filters change
+        }}
       />
     </div>
   );

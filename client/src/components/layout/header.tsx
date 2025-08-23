@@ -8,7 +8,8 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Heart, Bell, ChevronDown, LogOut, User } from "lucide-react";
+import { Heart, Bell, ChevronDown, LogOut, User, Calendar, Settings, Shield, Users } from "lucide-react";
+import { canAccessAdminConsole, UserRole } from "@/lib/permissions";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard" },
@@ -90,8 +91,24 @@ export default function Header() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem data-testid="menu-profile">
                   <User size={16} className="mr-2" />
-                  Profile
+                  Profile & Settings
                 </DropdownMenuItem>
+                <Link href="/schedule">
+                  <DropdownMenuItem data-testid="menu-calendar">
+                    <Calendar size={16} className="mr-2" />
+                    My Calendar
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuItem data-testid="menu-notifications">
+                  <Settings size={16} className="mr-2" />
+                  Notification Settings
+                </DropdownMenuItem>
+                {canAccessAdminConsole(user?.role as UserRole) && (
+                  <DropdownMenuItem data-testid="menu-admin">
+                    <Shield size={16} className="mr-2" />
+                    Admin Console
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleLogout} data-testid="menu-logout">
                   <LogOut size={16} className="mr-2" />
                   Sign Out

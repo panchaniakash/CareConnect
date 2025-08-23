@@ -2,14 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getAuthHeaders } from "@/lib/auth";
+import { getAuthHeaders, getCurrentUser } from "@/lib/auth";
+import { canExportReports, UserRole } from "@/lib/permissions";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { TrendingUp, Users, Calendar, Activity, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
 export default function ReportsPage() {
+  const { toast } = useToast();
+  const currentUser = getCurrentUser();
+  
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
     queryFn: async () => {
@@ -43,14 +48,101 @@ export default function ReportsPage() {
     },
   });
 
-  // Process data for charts
+  // Export functionality
+  const exportToCSV = () => {
+    try {
+      if (!appointments || !patients) {
+        toast({
+          title: "Export Error",
+          description: "Data not available for export",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const csvContent = [
+        // Header row
+        'Report Type,Data,Value',
+        
+        // Appointment status data
+        ...appointmentStatusData.map(item => 
+          `Appointment Status,${item.name},${item.value}`
+        ),
+        
+        // Appointment type data
+        ...appointmentTypeData.map(item => 
+          `Appointment Type,${item.name},${item.value}`
+        ),
+        
+        // Gender demographics
+        ...genderData.map(item => 
+          `Patient Gender,${item.name},${item.value}`
+        ),
+        
+        // Summary stats
+        `Statistics,Today's Appointments,${stats?.todayAppointments || 0}`,
+        `Statistics,Total Patients,${stats?.totalPatients || 0}`,
+        `Statistics,Pending Appointments,${stats?.pendingAppointments || 0}`,
+        `Statistics,Completed Appointments,${stats?.completedAppointments || 0}`,
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `healthcare-reports-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Export Successful",
+        description: "Reports have been downloaded as CSV file",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate export file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Process data for charts with improved accuracy
+  const totalAppointments = appointments?.length || 0;
   const appointmentStatusData = appointments ? [
-    { name: 'Scheduled', value: appointments.filter((a: any) => a.status === 'scheduled').length, color: '#3B82F6' },
-    { name: 'Confirmed', value: appointments.filter((a: any) => a.status === 'confirmed').length, color: '#10B981' },
-    { name: 'Completed', value: appointments.filter((a: any) => a.status === 'completed').length, color: '#8B5CF6' },
-    { name: 'Cancelled', value: appointments.filter((a: any) => a.status === 'cancelled').length, color: '#EF4444' },
-    { name: 'Pending', value: appointments.filter((a: any) => a.status === 'pending').length, color: '#F59E0B' },
-  ] : [];
+    { 
+      name: 'Scheduled', 
+      value: appointments.filter((a: any) => a.status === 'scheduled').length,
+      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'scheduled').length / totalAppointments) * 100) : 0,
+      color: '#3B82F6' 
+    },
+    { 
+      name: 'Confirmed', 
+      value: appointments.filter((a: any) => a.status === 'confirmed').length,
+      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'confirmed').length / totalAppointments) * 100) : 0,
+      color: '#10B981' 
+    },
+    { 
+      name: 'Completed', 
+      value: appointments.filter((a: any) => a.status === 'completed').length,
+      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'completed').length / totalAppointments) * 100) : 0,
+      color: '#8B5CF6' 
+    },
+    { 
+      name: 'Cancelled', 
+      value: appointments.filter((a: any) => a.status === 'cancelled').length,
+      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'cancelled').length / totalAppointments) * 100) : 0,
+      color: '#EF4444' 
+    },
+    { 
+      name: 'Pending', 
+      value: appointments.filter((a: any) => a.status === 'pending').length,
+      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'pending').length / totalAppointments) * 100) : 0,
+      color: '#F59E0B' 
+    },
+  ].filter(item => item.value > 0) : []; // Only show statuses that have appointments
 
   const appointmentTypeData = appointments ? [
     { name: 'Consultation', value: appointments.filter((a: any) => a.type === 'consultation').length },
@@ -99,10 +191,16 @@ export default function ReportsPage() {
             </h2>
             <p className="text-text-secondary">Comprehensive insights into your practice performance</p>
           </div>
-          <Button className="bg-primary hover:bg-primary-dark" data-testid="button-export-reports">
-            <Download size={16} className="mr-2" />
-            Export Reports
-          </Button>
+          {canExportReports(currentUser?.role as UserRole) && (
+            <Button 
+              onClick={exportToCSV}
+              className="bg-primary hover:bg-primary-dark" 
+              data-testid="button-export-reports"
+            >
+              <Download size={16} className="mr-2" />
+              Export Reports
+            </Button>
+          )}
         </div>
       </div>
 
@@ -184,23 +282,45 @@ export default function ReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
+            {appointmentStatusData.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {appointmentStatusData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <div className="flex items-center">
+                        <div 
+                          className="w-3 h-3 rounded mr-2" 
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span>{item.name}</span>
+                      </div>
+                      <span className="font-semibold">{item.value} ({item.percentage}%)</span>
+                    </div>
+                  ))}
+                </div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
                 <Pie
                   data={appointmentStatusData}
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
                   dataKey="value"
-                  label={({ name, value }) => `${name}: ${value}`}
+                  label={({ name, value, percentage }) => `${name}: ${value} (${percentage}%)`}
                 >
                   {appointmentStatusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-64 text-text-secondary">
+                <p>No appointment data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
