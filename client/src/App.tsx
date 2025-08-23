@@ -9,6 +9,7 @@ import DashboardPage from "@/pages/dashboard";
 import PatientsPage from "@/pages/patients";
 import SchedulePage from "@/pages/schedule";
 import ReportsPage from "@/pages/reports";
+import AdminConsole from "@/pages/admin-console";
 import Header from "@/components/layout/header";
 import NotFound from "@/pages/not-found";
 
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/patients" component={() => <ProtectedRoute component={PatientsPage} />} />
         <Route path="/schedule" component={() => <ProtectedRoute component={SchedulePage} />} />
         <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
+        <Route path="/admin-console" component={() => <ProtectedRoute component={AdminConsole} />} />
         <Route component={NotFound} />
       </Switch>
     </div>

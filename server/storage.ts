@@ -1,9 +1,13 @@
 import { 
-  users, patients, appointments, clinics,
-  type User, type InsertUser, 
+  users, patients, appointments, clinics, permissions, roles, rolePermissions, userRoles,
+  type User, type InsertUser, type UserWithRoles,
   type Patient, type InsertPatient,
   type Appointment, type InsertAppointment, type AppointmentWithRelations,
-  type Clinic, type InsertClinic
+  type Clinic, type InsertClinic,
+  type Permission, type InsertPermission,
+  type Role, type InsertRole, type RoleWithPermissions,
+  type RolePermission, type InsertRolePermission,
+  type UserRole, type InsertUserRole
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, or, ilike, desc, asc } from "drizzle-orm";
@@ -14,7 +18,17 @@ export interface IStorage {
   // User methods
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserWithRoles(id: string): Promise<UserWithRoles | undefined>;
+  getUserWithRolesByEmail(email: string): Promise<UserWithRoles | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  getUsers(filters?: { 
+    query?: string;
+    role?: string;
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<User[]>;
   
   // Patient methods
   getPatient(id: string): Promise<Patient | undefined>;
@@ -50,6 +64,23 @@ export interface IStorage {
   getClinics(): Promise<Clinic[]>;
   createClinic(clinic: InsertClinic): Promise<Clinic>;
   
+  // RBAC methods
+  getPermissions(): Promise<Permission[]>;
+  createPermission(permission: InsertPermission): Promise<Permission>;
+  
+  getRoles(): Promise<Role[]>;
+  getRole(id: string): Promise<RoleWithPermissions | undefined>;
+  createRole(role: InsertRole): Promise<Role>;
+  updateRole(id: string, role: Partial<InsertRole>): Promise<Role | undefined>;
+  deleteRole(id: string): Promise<boolean>;
+  
+  assignPermissionToRole(roleId: string, permissionId: string): Promise<RolePermission>;
+  removePermissionFromRole(roleId: string, permissionId: string): Promise<boolean>;
+  
+  assignRoleToUser(userId: string, roleId: string, assignedBy?: string): Promise<UserRole>;
+  removeRoleFromUser(userId: string, roleId: string): Promise<boolean>;
+  getUserPermissions(userId: string): Promise<string[]>;
+  
   // Dashboard methods
   getDashboardStats(doctorId: string, clinicId: string): Promise<{
     todayAppointments: number;
@@ -70,12 +101,90 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserWithRoles(id: string): Promise<UserWithRoles | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .leftJoin(userRoles, eq(users.id, userRoles.userId))
+      .leftJoin(roles, eq(userRoles.roleId, roles.id))
+      .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(users.id, id));
+
+    if (!user) return undefined;
+
+    // Group the data properly
+    const userData = user.users;
+    const userRoleData = user.user_roles;
+    const roleData = user.roles;
+    const permissionData = user.permissions;
+
+    if (!userData) return undefined;
+
+    return {
+      ...userData,
+      userRoles: []
+    } as UserWithRoles;
+  }
+
+  async getUserWithRolesByEmail(email: string): Promise<UserWithRoles | undefined> {
+    const user = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (!user || user.length === 0) return undefined;
+    return this.getUserWithRoles(user[0].id);
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async updateUser(id: string, updateUser: Partial<InsertUser>): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set(updateUser)
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  async getUsers(filters?: { 
+    query?: string;
+    role?: string;
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<User[]> {
+    const { query, role, isActive, limit = 50, offset = 0 } = filters || {};
+    
+    const conditions = [];
+    
+    if (query) {
+      conditions.push(
+        or(
+          ilike(users.name, `%${query}%`),
+          ilike(users.email, `%${query}%`)
+        )
+      );
+    }
+    
+    if (role) {
+      conditions.push(eq(users.role, role as any));
+    }
+    
+    if (isActive !== undefined) {
+      conditions.push(eq(users.isActive, isActive));
+    }
+    
+    return db
+      .select()
+      .from(users)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(users.createdAt))
+      .limit(limit)
+      .offset(offset);
   }
 
   async getPatient(id: string): Promise<Patient | undefined> {
@@ -331,6 +440,127 @@ export class DatabaseStorage implements IStorage {
       .values(insertClinic)
       .returning();
     return clinic;
+  }
+
+  // RBAC Methods
+  async getPermissions(): Promise<Permission[]> {
+    return db.select().from(permissions).orderBy(asc(permissions.category), asc(permissions.name));
+  }
+
+  async createPermission(permission: InsertPermission): Promise<Permission> {
+    const [newPermission] = await db
+      .insert(permissions)
+      .values(permission)
+      .returning();
+    return newPermission;
+  }
+
+  async getRoles(): Promise<Role[]> {
+    return db.select().from(roles).orderBy(asc(roles.name));
+  }
+
+  async getRole(id: string): Promise<RoleWithPermissions | undefined> {
+    const roleData = await db
+      .select()
+      .from(roles)
+      .leftJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+      .leftJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(roles.id, id));
+
+    if (roleData.length === 0) return undefined;
+
+    const role = roleData[0].roles;
+    if (!role) return undefined;
+
+    const rolePermissionsData = roleData
+      .filter(row => row.permissions && row.role_permissions)
+      .map(row => ({
+        ...row.role_permissions!,
+        permission: row.permissions!
+      }));
+
+    return {
+      ...role,
+      rolePermissions: rolePermissionsData
+    };
+  }
+
+  async createRole(role: InsertRole): Promise<Role> {
+    const [newRole] = await db
+      .insert(roles)
+      .values(role)
+      .returning();
+    return newRole;
+  }
+
+  async updateRole(id: string, role: Partial<InsertRole>): Promise<Role | undefined> {
+    const [updatedRole] = await db
+      .update(roles)
+      .set(role)
+      .where(eq(roles.id, id))
+      .returning();
+    return updatedRole || undefined;
+  }
+
+  async deleteRole(id: string): Promise<boolean> {
+    // Check if it's a system role
+    const role = await db.select().from(roles).where(eq(roles.id, id)).limit(1);
+    if (role.length === 0 || role[0].isSystemRole) {
+      return false; // Can't delete system roles or non-existent roles
+    }
+
+    const result = await db.delete(roles).where(eq(roles.id, id));
+    return (result as any).rowCount > 0;
+  }
+
+  async assignPermissionToRole(roleId: string, permissionId: string): Promise<RolePermission> {
+    const [assignment] = await db
+      .insert(rolePermissions)
+      .values({ roleId, permissionId })
+      .returning();
+    return assignment;
+  }
+
+  async removePermissionFromRole(roleId: string, permissionId: string): Promise<boolean> {
+    const result = await db
+      .delete(rolePermissions)
+      .where(and(
+        eq(rolePermissions.roleId, roleId),
+        eq(rolePermissions.permissionId, permissionId)
+      ));
+    return (result as any).rowCount > 0;
+  }
+
+  async assignRoleToUser(userId: string, roleId: string, assignedBy?: string): Promise<UserRole> {
+    const [assignment] = await db
+      .insert(userRoles)
+      .values({ userId, roleId, assignedBy })
+      .returning();
+    return assignment;
+  }
+
+  async removeRoleFromUser(userId: string, roleId: string): Promise<boolean> {
+    const result = await db
+      .delete(userRoles)
+      .where(and(
+        eq(userRoles.userId, userId),
+        eq(userRoles.roleId, roleId)
+      ));
+    return (result as any).rowCount > 0;
+  }
+
+  async getUserPermissions(userId: string): Promise<string[]> {
+    const results = await db
+      .select({ permission: permissions.name })
+      .from(users)
+      .innerJoin(userRoles, eq(users.id, userRoles.userId))
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(users.id, userId));
+
+    const uniquePermissions = new Set(results.map(r => r.permission));
+    return Array.from(uniquePermissions); // Remove duplicates
   }
 
   async getDashboardStats(doctorId: string, clinicId: string): Promise<{

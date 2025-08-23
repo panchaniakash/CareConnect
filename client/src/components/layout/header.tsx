@@ -45,10 +45,7 @@ export default function Header() {
   };
 
   const handleAdminConsole = () => {
-    toast({
-      title: "Admin Console",
-      description: "Admin console functionality is coming soon. Manage users, clinics, and system settings here.",
-    });
+    window.location.href = '/admin-console';
   };
 
   const handleNotifications = () => {

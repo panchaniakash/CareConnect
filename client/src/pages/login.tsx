@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { loginSchema, type LoginData } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { setToken, setCurrentUser } from "@/lib/auth";
+import { loadUserPermissions } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,9 +31,17 @@ export default function LoginPage() {
       const response = await apiRequest("POST", "/api/auth/login", data);
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setToken(data.token);
       setCurrentUser(data.user);
+      
+      // Load user permissions for RBAC
+      try {
+        await loadUserPermissions(data.user.id);
+      } catch (error) {
+        console.error('Failed to load user permissions:', error);
+      }
+      
       toast({
         title: "Login successful",
         description: `Welcome back, ${data.user.name}!`,

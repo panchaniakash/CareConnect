@@ -8,7 +8,9 @@ import {
   insertPatientSchema, 
   insertAppointmentSchema,
   insertUserSchema,
-  insertClinicSchema
+  insertClinicSchema,
+  insertRoleSchema,
+  insertPermissionSchema
 } from "@shared/schema";
 import dotenv from "dotenv";
 dotenv.config();
@@ -255,6 +257,314 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid input", errors: error.errors });
       }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin/RBAC Routes
+  
+  // Users management
+  app.get("/api/admin/users", authenticate, async (req: AuthRequest, res) => {
+    try {
+      // Check if user has admin permissions
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_users')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const filters = {
+        query: req.query.query as string,
+        role: req.query.role as string,
+        isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
+        limit: parseInt(req.query.limit as string) || 50,
+        offset: parseInt(req.query.offset as string) || 0,
+      };
+
+      const users = await storage.getUsers(filters);
+      res.json(users);
+    } catch (error) {
+      console.error('Get users error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/users", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_users')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      // Hash password
+      const hashedPassword = await hashPassword(userData.password);
+      
+      // Create user
+      const user = await storage.createUser({
+        ...userData,
+        password: hashedPassword,
+      });
+
+      res.status(201).json({ 
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error('Create user error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/admin/users/:id", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_users')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const updates = insertUserSchema.partial().parse(req.body);
+      
+      // Hash password if provided
+      if (updates.password) {
+        updates.password = await hashPassword(updates.password);
+      }
+      
+      const user = await storage.updateUser(req.params.id, updates);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error('Update user error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Roles management
+  app.get("/api/admin/roles", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const roles = await storage.getRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error('Get roles error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/roles/:id", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const role = await storage.getRole(req.params.id);
+      if (!role) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+      res.json(role);
+    } catch (error) {
+      console.error('Get role error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/roles", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const roleData = insertRoleSchema.parse(req.body);
+      const role = await storage.createRole(roleData);
+      res.status(201).json(role);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error('Create role error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/admin/roles/:id", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const updates = insertRoleSchema.partial().parse(req.body);
+      const role = await storage.updateRole(req.params.id, updates);
+      if (!role) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+      res.json(role);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error('Update role error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/admin/roles/:id", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const success = await storage.deleteRole(req.params.id);
+      if (!success) {
+        return res.status(400).json({ message: "Cannot delete system role or role not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete role error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Permissions management
+  app.get("/api/admin/permissions", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const permissions = await storage.getPermissions();
+      res.json(permissions);
+    } catch (error) {
+      console.error('Get permissions error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Role-Permission assignments
+  app.post("/api/admin/roles/:roleId/permissions", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { permissionId } = req.body;
+      if (!permissionId) {
+        return res.status(400).json({ message: "Permission ID is required" });
+      }
+
+      const assignment = await storage.assignPermissionToRole(req.params.roleId, permissionId);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error('Assign permission error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/admin/roles/:roleId/permissions/:permissionId", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_roles')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const success = await storage.removePermissionFromRole(req.params.roleId, req.params.permissionId);
+      if (!success) {
+        return res.status(404).json({ message: "Permission assignment not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Remove permission error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // User-Role assignments
+  app.post("/api/admin/users/:userId/roles", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_users')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const { roleId } = req.body;
+      if (!roleId) {
+        return res.status(400).json({ message: "Role ID is required" });
+      }
+
+      const assignment = await storage.assignRoleToUser(req.params.userId, roleId, req.user!.id);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error('Assign role error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/admin/users/:userId/roles/:roleId", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.manage_users')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const success = await storage.removeRoleFromUser(req.params.userId, req.params.roleId);
+      if (!success) {
+        return res.status(404).json({ message: "Role assignment not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Remove role error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get user permissions
+  app.get("/api/admin/users/:userId/permissions", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.view_console')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      const permissions = await storage.getUserPermissions(req.params.userId);
+      res.json(permissions);
+    } catch (error) {
+      console.error('Get user permissions error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
