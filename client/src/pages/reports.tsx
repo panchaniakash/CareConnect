@@ -60,30 +60,57 @@ export default function ReportsPage() {
         return;
       }
 
+      const currentDate = new Date().toISOString().split('T')[0];
       const csvContent = [
-        // Header row
-        'Report Type,Data,Value',
+        // Header with metadata
+        `Healthcare Analytics Report - Generated on ${currentDate}`,
+        '',
         
-        // Appointment status data
+        // Summary Statistics Section
+        'SUMMARY STATISTICS',
+        'Metric,Count',
+        `Total Patients,${stats?.totalPatients || 0}`,
+        `Today's Appointments,${stats?.todayAppointments || 0}`,
+        `Pending Appointments,${stats?.pendingAppointments || 0}`,
+        `Completed Appointments,${stats?.completedAppointments || 0}`,
+        '',
+        
+        // Appointment Status Distribution
+        'APPOINTMENT STATUS DISTRIBUTION',
+        'Status,Count,Percentage',
         ...appointmentStatusData.map(item => 
-          `Appointment Status,${item.name},${item.value}`
+          `${item.name},${item.value},${item.percentage.toFixed(1)}%`
         ),
+        '',
         
-        // Appointment type data
+        // Appointment Type Distribution  
+        'APPOINTMENT TYPE DISTRIBUTION',
+        'Type,Count',
         ...appointmentTypeData.map(item => 
-          `Appointment Type,${item.name},${item.value}`
+          `${item.name},${item.value}`
         ),
+        '',
         
-        // Gender demographics
+        // Patient Demographics
+        'PATIENT DEMOGRAPHICS',
+        'Gender,Count',
         ...genderData.map(item => 
-          `Patient Gender,${item.name},${item.value}`
+          `${item.name},${item.value}`
         ),
+        '',
         
-        // Summary stats
-        `Statistics,Today's Appointments,${stats?.todayAppointments || 0}`,
-        `Statistics,Total Patients,${stats?.totalPatients || 0}`,
-        `Statistics,Pending Appointments,${stats?.pendingAppointments || 0}`,
-        `Statistics,Completed Appointments,${stats?.completedAppointments || 0}`,
+        // Weekly Trend Data
+        'WEEKLY APPOINTMENT TRENDS',
+        'Week,Appointments',
+        ...weeklyTrend.map(item => 
+          `${item.week},${item.appointments}`
+        ),
+        '',
+        
+        // Export metadata
+        `Report exported by: ${currentUser?.name || 'Unknown User'}`,
+        `User role: ${currentUser?.role || 'Unknown'}`,
+        `Export timestamp: ${new Date().toISOString()}`,
       ].join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -111,51 +138,71 @@ export default function ReportsPage() {
 
   // Process data for charts with improved accuracy
   const totalAppointments = appointments?.length || 0;
-  const appointmentStatusData = appointments ? [
-    { 
-      name: 'Scheduled', 
-      value: appointments.filter((a: any) => a.status === 'scheduled').length,
-      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'scheduled').length / totalAppointments) * 100) : 0,
-      color: '#3B82F6' 
-    },
-    { 
-      name: 'Confirmed', 
-      value: appointments.filter((a: any) => a.status === 'confirmed').length,
-      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'confirmed').length / totalAppointments) * 100) : 0,
-      color: '#10B981' 
-    },
-    { 
-      name: 'Completed', 
-      value: appointments.filter((a: any) => a.status === 'completed').length,
-      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'completed').length / totalAppointments) * 100) : 0,
-      color: '#8B5CF6' 
-    },
-    { 
-      name: 'Cancelled', 
-      value: appointments.filter((a: any) => a.status === 'cancelled').length,
-      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'cancelled').length / totalAppointments) * 100) : 0,
-      color: '#EF4444' 
-    },
-    { 
-      name: 'Pending', 
-      value: appointments.filter((a: any) => a.status === 'pending').length,
-      percentage: totalAppointments ? Math.round((appointments.filter((a: any) => a.status === 'pending').length / totalAppointments) * 100) : 0,
-      color: '#F59E0B' 
-    },
-  ].filter(item => item.value > 0) : []; // Only show statuses that have appointments
+  
+  // Calculate appointment status counts efficiently in a single pass
+  const statusCounts = appointments ? appointments.reduce((acc: any, appointment: any) => {
+    const status = appointment.status || 'unknown';
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {}) : {};
 
-  const appointmentTypeData = appointments ? [
-    { name: 'Consultation', value: appointments.filter((a: any) => a.type === 'consultation').length },
-    { name: 'Checkup', value: appointments.filter((a: any) => a.type === 'checkup').length },
-    { name: 'Follow-up', value: appointments.filter((a: any) => a.type === 'followup').length },
-    { name: 'Emergency', value: appointments.filter((a: any) => a.type === 'emergency').length },
-  ] : [];
+  // Define all possible statuses with their display properties
+  const statusConfig = [
+    { key: 'scheduled', name: 'Scheduled', color: '#3B82F6' },
+    { key: 'confirmed', name: 'Confirmed', color: '#10B981' },
+    { key: 'pending', name: 'Pending', color: '#F59E0B' },
+    { key: 'completed', name: 'Completed', color: '#8B5CF6' },
+    { key: 'cancelled', name: 'Cancelled', color: '#EF4444' }
+  ];
 
-  const genderData = patients ? [
-    { name: 'Male', value: patients.filter((p: any) => p.gender === 'male').length },
-    { name: 'Female', value: patients.filter((p: any) => p.gender === 'female').length },
-    { name: 'Other', value: patients.filter((p: any) => p.gender === 'other').length },
-  ] : [];
+  // Calculate percentages ensuring they add up to 100%
+  const rawPercentages = statusConfig.map(config => ({
+    ...config,
+    value: statusCounts[config.key] || 0,
+    rawPercentage: totalAppointments > 0 ? (statusCounts[config.key] || 0) / totalAppointments * 100 : 0
+  }));
+
+  // Adjust percentages to ensure they sum to 100% (handle rounding errors)
+  const totalRawPercentage = rawPercentages.reduce((sum, item) => sum + item.rawPercentage, 0);
+  const adjustmentFactor = totalRawPercentage > 0 ? 100 / totalRawPercentage : 0;
+
+  const appointmentStatusData = rawPercentages
+    .map(item => ({
+      name: item.name,
+      value: item.value,
+      percentage: totalAppointments > 0 ? Math.round(item.rawPercentage * adjustmentFactor * 100) / 100 : 0,
+      color: item.color
+    }))
+    .filter(item => item.value > 0); // Only show statuses that have appointments
+
+  // Calculate appointment type counts efficiently
+  const typeCounts = appointments ? appointments.reduce((acc: any, appointment: any) => {
+    const type = appointment.type || 'other';
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {}) : {};
+
+  const appointmentTypeData = [
+    { name: 'Consultation', value: typeCounts.consultation || 0 },
+    { name: 'Checkup', value: typeCounts.checkup || 0 },
+    { name: 'Follow-up', value: typeCounts.followup || 0 },
+    { name: 'Emergency', value: typeCounts.emergency || 0 },
+    { name: 'Other', value: typeCounts.other || 0 }
+  ].filter(item => item.value > 0);
+
+  // Calculate gender distribution efficiently
+  const genderCounts = patients ? patients.reduce((acc: any, patient: any) => {
+    const gender = patient.gender || 'not_specified';
+    acc[gender] = (acc[gender] || 0) + 1;
+    return acc;
+  }, {}) : {};
+
+  const genderData = [
+    { name: 'Male', value: genderCounts.male || 0 },
+    { name: 'Female', value: genderCounts.female || 0 },
+    { name: 'Other', value: genderCounts.other || 0 },
+    { name: 'Not Specified', value: genderCounts.not_specified || 0 }
+  ].filter(item => item.value > 0);
 
   // Weekly appointment trend (mock data for now)
   const weeklyTrend = [

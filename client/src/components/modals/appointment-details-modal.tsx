@@ -10,6 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getAuthHeaders } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -22,7 +24,9 @@ import {
   Mail,
   Edit,
   Trash2,
-  CheckCircle 
+  CheckCircle,
+  Save,
+  X
 } from "lucide-react";
 
 interface AppointmentDetailsModalProps {
@@ -37,6 +41,8 @@ export default function AppointmentDetailsModal({
   appointment,
 }: AppointmentDetailsModalProps) {
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -97,6 +103,33 @@ export default function AppointmentDetailsModal({
 
   const handleCancel = () => {
     updateAppointmentMutation.mutate({ status: "cancelled" });
+  };
+
+  const handleReschedule = () => {
+    if (!rescheduleDate || !rescheduleTime) {
+      toast({
+        title: "Error",
+        description: "Please select both date and time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newDateTime = new Date(`${rescheduleDate}T${rescheduleTime}`);
+    updateAppointmentMutation.mutate({ 
+      appointmentDate: newDateTime.toISOString() 
+    });
+    setIsRescheduling(false);
+    setRescheduleDate("");
+    setRescheduleTime("");
+  };
+
+  const formatDateForInput = (dateString: string) => {
+    return format(new Date(dateString), "yyyy-MM-dd");
+  };
+
+  const formatTimeForInput = (dateString: string) => {
+    return format(new Date(dateString), "HH:mm");
   };
 
   if (!appointment) return null;
@@ -240,19 +273,57 @@ export default function AppointmentDetailsModal({
           </div>
 
           {isRescheduling && (
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-700">
-                Reschedule functionality coming soon. For now, please cancel this appointment 
-                and create a new one with the desired date and time.
-              </p>
-              <Button
-                onClick={() => setIsRescheduling(false)}
-                variant="outline"
-                size="sm"
-                className="mt-2"
-              >
-                Close
-              </Button>
+            <div className="p-4 bg-blue-50 rounded-lg space-y-4">
+              <h4 className="font-medium text-blue-900">Reschedule Appointment</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reschedule-date">New Date</Label>
+                  <Input
+                    id="reschedule-date"
+                    type="date"
+                    value={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                    min={format(new Date(), "yyyy-MM-dd")}
+                    data-testid="input-reschedule-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reschedule-time">New Time</Label>
+                  <Input
+                    id="reschedule-time"
+                    type="time"
+                    value={rescheduleTime}
+                    onChange={(e) => setRescheduleTime(e.target.value)}
+                    data-testid="input-reschedule-time"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleReschedule}
+                  disabled={updateAppointmentMutation.isPending}
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="button-confirm-reschedule"
+                >
+                  <Save className="h-3 w-3" />
+                  Save Changes
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsRescheduling(false);
+                    setRescheduleDate("");
+                    setRescheduleTime("");
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="button-cancel-reschedule"
+                >
+                  <X className="h-3 w-3" />
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
         </div>

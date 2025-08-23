@@ -18,7 +18,19 @@ export interface IStorage {
   
   // Patient methods
   getPatient(id: string): Promise<Patient | undefined>;
-  getPatients(query?: string, limit?: number, offset?: number): Promise<Patient[]>;
+  getPatients(filters: {
+    query?: string;
+    limit?: number;
+    offset?: number;
+    status?: string;
+    gender?: string;
+    clinic?: string;
+    minAge?: number;
+    maxAge?: number;
+    dateFrom?: Date;
+    dateTo?: Date;
+    hasUpcomingAppointment?: boolean;
+  }): Promise<Patient[]>;
   createPatient(patient: InsertPatient): Promise<Patient>;
   updatePatient(id: string, patient: Partial<InsertPatient>): Promise<Patient | undefined>;
   
@@ -71,11 +83,47 @@ export class DatabaseStorage implements IStorage {
     return patient || undefined;
   }
 
-  async getPatients(query?: string, limit = 10, offset = 0): Promise<Patient[]> {
-    const conditions = [eq(patients.isActive, true)];
+  async getPatients(filters: {
+    query?: string;
+    limit?: number;
+    offset?: number;
+    status?: string;
+    gender?: string;
+    clinic?: string;
+    minAge?: number;
+    maxAge?: number;
+    dateFrom?: Date;
+    dateTo?: Date;
+    hasUpcomingAppointment?: boolean;
+  } = {}): Promise<Patient[]> {
+    const { 
+      query, 
+      limit = 10, 
+      offset = 0, 
+      status, 
+      gender, 
+      clinic, 
+      minAge, 
+      maxAge, 
+      dateFrom, 
+      dateTo,
+      hasUpcomingAppointment 
+    } = filters;
+
+    const conditions = [];
     
+    // Base condition - only include active patients unless status filter specifies otherwise
+    if (status === 'inactive') {
+      conditions.push(eq(patients.isActive, false));
+    } else if (status === 'active') {
+      conditions.push(eq(patients.isActive, true));
+    } else {
+      // Default to active patients only if no status filter
+      conditions.push(eq(patients.isActive, true));
+    }
+    
+    // Search query
     if (query) {
-      // Support full name search by splitting query into parts
       const queryParts = query.trim().split(/\s+/);
       
       if (queryParts.length > 1) {
@@ -112,6 +160,31 @@ export class DatabaseStorage implements IStorage {
           conditions.push(searchCondition);
         }
       }
+    }
+    
+    // Gender filter
+    if (gender) {
+      conditions.push(eq(patients.gender, gender));
+    }
+    
+    // Age range filters
+    if (minAge) {
+      const maxBirthDate = new Date();
+      maxBirthDate.setFullYear(maxBirthDate.getFullYear() - minAge);
+      conditions.push(lte(patients.dateOfBirth, maxBirthDate));
+    }
+    if (maxAge) {
+      const minBirthDate = new Date();
+      minBirthDate.setFullYear(minBirthDate.getFullYear() - maxAge - 1);
+      conditions.push(gte(patients.dateOfBirth, minBirthDate));
+    }
+    
+    // Date range filters (registration date)
+    if (dateFrom) {
+      conditions.push(gte(patients.createdAt, dateFrom));
+    }
+    if (dateTo) {
+      conditions.push(lte(patients.createdAt, dateTo));
     }
     
     return db

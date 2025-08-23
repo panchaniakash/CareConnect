@@ -48,6 +48,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'appointments.cancel',
     'appointments.reschedule',
     'reports.view',
+    'reports.export',
     'schedule.view_all',
   ],
   nurse: [

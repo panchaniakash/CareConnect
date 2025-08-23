@@ -51,8 +51,8 @@ export default function NewPatientModal({ open, onOpenChange }: NewPatientModalP
     defaultValues: {
       firstName: "",
       lastName: "",
-      dateOfBirth: null,
-      gender: null,
+      dateOfBirth: undefined,
+      gender: undefined,
       phone: "",
       email: "",
       address: "",

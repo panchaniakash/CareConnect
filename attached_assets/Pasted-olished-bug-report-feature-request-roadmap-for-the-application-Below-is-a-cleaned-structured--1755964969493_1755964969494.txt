@@ -1,0 +1,395 @@
+olished bug report, feature request & roadmap for the application
+
+Below is a cleaned, structured, and action-ready version of the issues and feature ideas you shared. It organizes each problem by page, gives clear reproduction steps and expected behaviour, proposes fixes/logic, defines acceptance criteria, and offers priority and “out-of-the-box” ideas to take the app to the next level.
+
+1 — Executive summary
+
+The app currently has several broken UI controls and missing behaviors across Dashboard, Patients, Schedule, Reports & Analytics, and the global header/profile. In addition you want a robust, role-based admin model (master-admin vs other users) and creative product ideas to scale the application.
+
+I’ve grouped items by severity and provided precise acceptance criteria so developers and QA can implement and verify fixes rapidly.
+
+2 — Priority legend
+
+P1 (Critical) — blocks core workflows (search, schedule, navigation, permissions).
+
+P2 (High) — important UX/functional issues (graphs, exports, buttons).
+
+P3 (Enhancement) — new features, improvements, “out-of-the-box” ideas.
+
+3 — Dashboard (P1 / P2)
+
+Problems
+
+Search Records button not working.
+
+“Today’s Schedule” — appointment item shows a 3-dot menu (⋯) on the left; its purpose/logic is unclear or not implemented.
+
+Desired behaviour / fixes
+
+Search Records
+
+Reattach click handler.
+
+Implement client-side validation and call the API with correct parameters.
+
+Ensure debounce to avoid duplicate calls.
+
+Show loading state and friendly error if API fails.
+
+Today’s Schedule 3-dot menu
+
+Use the 3-dot menu to expose contextual actions for that appointment:
+
+View Details (open modal)
+
+Reschedule (open reschedule dialog / drag-and-drop)
+
+Cancel
+
+Mark as Completed / No-Show
+
+Add Note
+
+Disable or hide items if user lacks permission or action is not applicable (e.g., “Reschedule” disabled for past appointments).
+
+Acceptance criteria
+
+Clicking Search Records triggers an API call and returns results or a clear “no results” message. Loading indicator is shown during the call.
+
+The 3-dot menu shows the list above, actions call correct endpoints and respect user permissions.
+
+4 — Patients Page (P1)
+
+Problems
+
+Full-name search for Akash Panchani returns “No patients found”.
+
+Actions column — View and Edit buttons not working.
+
+Additional actions (Schedule Appointment, View History, Deactivate) not working.
+
+Search bar: left-side filter icon not opening filter pane.
+
+Pagination controls at bottom do not navigate to next/previous pages.
+
+Root-cause suspects
+
+Frontend missing or broken event handlers.
+
+Search API might be doing tokenized search or not performing case-insensitive / full-name search.
+
+Pagination may be purely client-side but not wired to API or state.
+
+Permissions check or missing route handlers disabling action buttons.
+
+Fixes & improvements
+
+Search behavior
+
+Normalize search input (trim, collapse whitespace, case-insensitive).
+
+Support full-string matching and tokenized matching: search by firstName + ' ' + lastName and fallback to substring match.
+
+Add unit tests summarizing the case (e.g., search "Akash Panchani" → returns patient record).
+
+Actions column
+
+Ensure buttons have accessible labels and their onClick handlers call the correct route/modal.
+
+Respect RBAC (hide/disable actions based on permissions).
+
+Filters
+
+Clicking filter icon opens a sidebar with advanced filters (status, date range, location, tag).
+
+Preserve filter state across pagination.
+
+Pagination
+
+Implement server-side pagination or ensure client-side pagination works with the fetched dataset.
+
+Enable previous/next and numbered page navigation; include “Items per page” selector.
+
+Keyboard accessible and shows disabled state at first/last page.
+
+Acceptance criteria
+
+Searching exact full name “Akash Panchani” returns the patient record.
+
+View and Edit buttons open the correct modal or page with the patient’s data and are functional.
+
+Schedule Appointment, View History, Deactivate work and show success/error feedback.
+
+Filter icon toggles filter pane. Pagination navigates between pages correctly.
+
+5 — Schedule Page (Calendar) (P1 / P2)
+
+Problems
+
+Clicking an appointment shows details, but rescheduling workflows are missing or not working.
+
+Drag-and-drop or manual reschedule flow not implemented.
+
+Fixes & UX
+
+Clicking an appointment opens a modal with: patient, provider, start/end time, duration, notes, status and actions: Reschedule, Cancel, Mark Complete, Add Note.
+
+Implement two reschedule options:
+
+Drag-and-drop on the calendar (with validation: provider availability, double-booking prevention).
+
+Reschedule dialog where user picks new date/time and optionally provider or duration.
+
+Show conflict/warning if new slot overlaps or provider unavailable and propose nearest free slots.
+
+Offer an “Undo” toast for 5–10 seconds after changing.
+
+Acceptance criteria
+
+Appointment click shows details and a functioning Reschedule button.
+
+Dragging an appointment to a new time updates it (after validation) and persists to backend.
+
+Conflicts are detected and proper error/modals shown.
+
+6 — Reports & Analytics (P2)
+
+Problems
+
+Appointment Status Distribution graph incorrect or misleading.
+
+Export Reports option not working.
+
+Fixes
+
+Graph
+
+Recompute distribution based on canonical statuses (Scheduled, Completed, Cancelled, No-Show, Rescheduled).
+
+Use server-provided aggregated counts for accuracy (don’t rely on client filtering unless consistent).
+
+Show absolute counts and percentages; include legend and tooltips.
+
+Validate time range and filters apply correctly.
+
+Export
+
+Implement export to CSV/Excel/PDF using server-side generation or robust client-side CSV builder.
+
+Export should respect the current filters/time range and user permissions.
+
+Provide a progress indicator and success/download link.
+
+Acceptance criteria
+
+Distribution chart matches backend aggregation and legend is correct.
+
+Export button generates a file that contains the filter-applied dataset and downloads reliably.
+
+7 — Header / Profile (P1)
+
+Problem
+
+Top-right profile button is not working.
+
+Fix
+
+Ensure the profile button opens a dropdown with:
+
+Profile / Settings
+
+My Calendar
+
+Notification settings
+
+Switch Role (if user has multiple roles)
+
+Admin Console (if permitted)
+
+Logout
+
+Include keyboard accessibility and ARIA attributes.
+
+Acceptance criteria
+
+Clicking profile opens the dropdown and each menu item navigates or opens the appropriate dialog.
+
+8 — Admin / Permissions & Multi-UI (P1 / P2)
+
+Main ask
+
+"How can I create rights based on user's role?"
+
+"Can we create different UI in same login for master-admin vs others so master-admin can create users and manage rights?"
+
+Recommended approach: Role-Based Access Control (RBAC) + UI feature flags
+
+RBAC model
+
+Core entities: Role, Permission, User.
+
+Permission is granular (e.g., patients.view, patients.edit, appointments.create, reports.export, admin.manage_users).
+
+Role groups permissions (e.g., master-admin, clinic-admin, receptionist, doctor, analytics-only).
+
+Assign roles to users, allow multiple roles per user (effective permissions = union).
+
+Admin Console
+
+Master-Admin UI: Has access to a dedicated Admin Console page:
+
+Create/Edit Roles
+
+Assign Permissions to Roles
+
+Create/Edit Users and assign Roles
+
+View Audit Logs
+
+Scoped Admins: Admins limited to specific locations/clinics (scoping).
+
+UI should show/hide or disable features at runtime based on the current user’s permissions.
+
+Implementation tips
+
+Enforce permissions server-side for APIs (do not rely on frontend hiding only).
+
+Cache permission set in JWT or a short-lived session token for faster client-side checks.
+
+Provide a UI preview mode: toggle "Preview as role X" so master-admins can see the UI of any role.
+
+Feature flags for experimental UI (allow master admins to enable/disable new features per tenant).
+
+Suggested permission matrix (example)
+
+admin.manage_users, admin.manage_roles, patients.view, patients.edit, appointments.create, appointments.reschedule, reports.view, reports.export, schedule.view_others, clinical.notes.edit, etc.
+
+Acceptance criteria
+
+Master-admin can create roles, assign permissions, create users and assign roles.
+
+UI components check permission and either hide or disable actions appropriately.
+
+Server enforces permission checks for each protected endpoint.
+
+9 — “Out of the box” features to take the product to the next level (P3 / strategic)
+
+Short list of high-impact ideas you can prioritize later:
+
+Smart Scheduling
+
+Auto-suggest best appointment slots based on provider availability, patient preferences and appointment type.
+
+Waitlist and auto-fill when slots open.
+
+AI Triage & Summaries
+
+Automated appointment summaries and key insights (uses NLP on clinical notes).
+
+Auto-suggest appointment durations based on historical data.
+
+Patient Portal / SMS & Email Workflow
+
+Self-scheduling for patients, appointment reminders, two-way SMS confirmations, intake form links.
+
+Telemedicine Integration
+
+One-click video call with meeting link and session recording metadata.
+
+Advanced Analytics
+
+Heatmaps of busiest times, provider utilization scores, revenue by service, no-show risk predictions.
+
+Audit Logs & Compliance
+
+Immutable audit trail for admin actions, patient record access, and exports (useful for healthcare compliance).
+
+Multi-tenant / Multi-location Support
+
+Tenants or clinic-level scoping with a master-admin dashboard.
+
+UX & Productivity
+
+Keyboard shortcuts, quick-add appointment flow, dark mode, bulk actions (deactivate multiple patients), undo for destructive actions.
+
+Developer & QA
+
+Add end-to-end tests (Cypress / Playwright) for critical flows and CI gate.
+
+API docs and Postman collection for integrations.
+
+10 — Suggested immediate backlog (recommended ordering)
+
+Sprint 1 (P1)
+
+Fix Search Records button and Patients full-name search.
+
+Fix Patients Actions (View/Edit/Schedule/View History/Deactivate).
+
+Fix Profile dropdown.
+
+Fix calendar appointment click details and add Reschedule dialog.
+
+Sprint 2 (P1/P2)
+
+Pagination and filter pane fixes on Patients page.
+
+Implement 3-dot menu actions in Today’s Schedule.
+
+Reports: fix distribution graph accuracy.
+
+Sprint 3 (P2/P3)
+
+Implement Export Reports.
+
+Build RBAC skeleton and Admin Console MVP (manage users, roles).
+
+Add drag-and-drop reschedule + conflict handling.
+
+Sprint 4 (P3)
+
+Smart scheduling, patient portal integrations, analytics enhancements.
+
+11 — Technical notes & QA checklist (developer-friendly)
+
+Check browser console for JS errors on each broken button — look for undefined or missing function references.
+
+Ensure endpoints used by buttons exist and accept expected payload (POST/PUT/GET).
+
+For patient search: ensure api/patients?search= supports full-name; add indexing or server-side LOWER(CONCAT(first,last)) LIKE %query%.
+
+Pagination: agree on server pagination contract { page, size } → { items, total }.
+
+Permissions: enforce RBAC server-side middleware for each protected route.
+
+Add E2E tests for:
+
+Searching “Akash Panchani”.
+
+Opening and using 3-dot menu actions.
+
+Rescheduling an appointment and confirming it in calendar.
+
+Exporting reports and validating CSV content.
+
+12 — Example acceptance test (sample)
+
+Title: Search returns patient by full name
+Steps:
+
+Go to Patients page.
+
+Enter Akash Panchani in search input and press Enter.
+Expected result:
+
+Patient card/row for Akash Panchani appears.
+
+If multiple matches exist, show them in list.
+
+No errors in console.
+
+13 — Final notes
+
+I focused on making each bug actionable and testable — every item above includes expected behaviour and acceptance criteria so developers/QA can quickly close tickets.
+
+If you’d like, I can convert this into a JIRA-ready ticket set (title, description, acceptance criteria, priority) or create a visual mock for the 3-dot menu + reschedule modal. Tell me which page to start with and I’ll produce the ticket cards immediately — no waiting.

@@ -10,6 +10,10 @@ import NewAppointmentModal from "@/components/modals/new-appointment-modal";
 import { useState } from "react";
 import { format } from "date-fns";
 import { Link } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import AppointmentDetailsModal from "@/components/modals/appointment-details-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +24,10 @@ import {
 export default function DashboardPage() {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [showAppointmentDetails, setShowAppointmentDetails] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Get today's date for filtering appointments
   const today = new Date();
@@ -59,6 +67,93 @@ export default function DashboardPage() {
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
+  };
+
+  const updateAppointmentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await fetch(`/api/appointments/${id}`, {
+        method: "PUT",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error("Failed to update appointment");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    },
+  });
+
+  const handleViewDetails = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setShowAppointmentDetails(true);
+  };
+
+  const handleMarkComplete = async (appointment: any) => {
+    try {
+      await updateAppointmentMutation.mutateAsync({
+        id: appointment.id,
+        data: { status: "completed" }
+      });
+      toast({
+        title: "Appointment Completed",
+        description: `Marked appointment for ${appointment.patient.firstName} ${appointment.patient.lastName} as completed`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update appointment status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMarkNoShow = async (appointment: any) => {
+    try {
+      await updateAppointmentMutation.mutateAsync({
+        id: appointment.id,
+        data: { status: "cancelled", notes: "No-show" }
+      });
+      toast({
+        title: "Appointment Cancelled",
+        description: `Marked appointment for ${appointment.patient.firstName} ${appointment.patient.lastName} as no-show`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update appointment status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelAppointment = async (appointment: any) => {
+    try {
+      await updateAppointmentMutation.mutateAsync({
+        id: appointment.id,
+        data: { status: "cancelled" }
+      });
+      toast({
+        title: "Appointment Cancelled",
+        description: `Cancelled appointment for ${appointment.patient.firstName} ${appointment.patient.lastName}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to cancel appointment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReschedule = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setShowAppointmentDetails(true);
+    // Reschedule functionality is now available in the appointment details modal
   };
 
   return (
@@ -213,18 +308,21 @@ export default function DashboardPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {/* TODO: Implement view details */}}>
+                            <DropdownMenuItem onClick={() => handleViewDetails(appointment)}>
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {/* TODO: Implement reschedule */}}>
+                            <DropdownMenuItem onClick={() => handleReschedule(appointment)}>
                               Reschedule
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {/* TODO: Implement mark complete */}}>
+                            <DropdownMenuItem onClick={() => handleMarkComplete(appointment)}>
                               Mark Complete
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMarkNoShow(appointment)}>
+                              Mark No-Show
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onClick={() => {/* TODO: Implement cancel */}}
+                              onClick={() => handleCancelAppointment(appointment)}
                             >
                               Cancel Appointment
                             </DropdownMenuItem>
@@ -326,6 +424,12 @@ export default function DashboardPage() {
       <NewAppointmentModal
         open={showAppointmentModal}
         onOpenChange={setShowAppointmentModal}
+      />
+      
+      <AppointmentDetailsModal
+        open={showAppointmentDetails}
+        onOpenChange={setShowAppointmentDetails}
+        appointment={selectedAppointment}
       />
     </div>
   );

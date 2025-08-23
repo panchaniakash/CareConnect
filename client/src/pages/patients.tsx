@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthHeaders } from "@/lib/auth";
 import { Plus, Search, Filter, MoreHorizontal } from "lucide-react";
 import NewPatientModal from "@/components/modals/new-patient-modal";
+import PatientDetailsModal from "@/components/modals/patient-details-modal";
+import EditPatientModal from "@/components/modals/edit-patient-modal";
+import NewAppointmentModal from "@/components/modals/new-appointment-modal";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -33,9 +36,12 @@ export default function PatientsPage() {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const currentUser = getCurrentUser();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [showFilterSidebar, setShowFilterSidebar] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [showPatientDetails, setShowPatientDetails] = useState(false);
+  const [showEditPatient, setShowEditPatient] = useState(false);
+  const [showScheduleAppointment, setShowScheduleAppointment] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [filters, setFilters] = useState({
@@ -49,84 +55,144 @@ export default function PatientsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: patients, isLoading } = useQuery({
-    queryKey: ["/api/patients", { query: searchQuery, page: currentPage, limit: pageSize }],
+  // Debounce search query to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setCurrentPage(1); // Reset to first page when search changes
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const { data: patients, isLoading, error } = useQuery({
+    queryKey: ["/api/patients", { 
+      query: debouncedSearchQuery, 
+      page: currentPage, 
+      limit: pageSize, 
+      filters: filters 
+    }],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchQuery) params.append("query", searchQuery);
+      
+      // Add search query
+      if (debouncedSearchQuery && debouncedSearchQuery.trim()) {
+        params.append("query", debouncedSearchQuery.trim());
+      }
+      
+      // Add pagination
       params.append("limit", pageSize.toString());
       params.append("offset", ((currentPage - 1) * pageSize).toString());
+      
+      // Add filters
+      if (filters.status) {
+        params.append("status", filters.status);
+      }
+      if (filters.gender) {
+        params.append("gender", filters.gender);
+      }
+      if (filters.clinic) {
+        params.append("clinic", filters.clinic);
+      }
+      if (filters.ageRange.min) {
+        params.append("minAge", filters.ageRange.min);
+      }
+      if (filters.ageRange.max) {
+        params.append("maxAge", filters.ageRange.max);
+      }
+      if (filters.dateRange.from) {
+        params.append("dateFrom", filters.dateRange.from.toISOString());
+      }
+      if (filters.dateRange.to) {
+        params.append("dateTo", filters.dateRange.to.toISOString());
+      }
+      if (filters.hasUpcomingAppointment) {
+        params.append("hasUpcomingAppointment", "true");
+      }
       
       const response = await fetch(`/api/patients?${params.toString()}`, {
         headers: getAuthHeaders(),
       });
-      if (!response.ok) throw new Error("Failed to fetch patients");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch patients: ${errorText}`);
+      }
       return response.json();
     },
+    retry: 1,
   });
+
+  // Display search status for debugging
+  useEffect(() => {
+    if (error) {
+      console.error("Patient search error:", error);
+      toast({
+        title: "Search Error",
+        description: "Failed to search patients. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase();
   };
 
-  const formatLastVisit = (createdAt: string) => {
-    return format(new Date(createdAt), "MMM dd, yyyy");
-  };
-
-  const handleViewPatient = (patient: any) => {
+  // Patient action handlers
+  const handleViewDetails = (patient: any) => {
     setSelectedPatient(patient);
     setShowPatientDetails(true);
   };
 
   const handleEditPatient = (patient: any) => {
     setSelectedPatient(patient);
-    setShowPatientModal(true);
+    setShowEditPatient(true);
   };
 
-  const handleScheduleAppointment = async (patient: any) => {
-    // TODO: Open appointment modal with patient pre-selected
-    toast({
-      title: "Schedule Appointment",
-      description: `Scheduling appointment for ${patient.firstName} ${patient.lastName}`,
-    });
+  const handleScheduleAppointment = (patient: any) => {
+    setSelectedPatient(patient);
+    setShowScheduleAppointment(true);
   };
 
   const handleViewHistory = (patient: any) => {
-    // TODO: Navigate to patient history page
+    // For now, just show a toast - could implement a history modal later
     toast({
-      title: "View History",
-      description: `Viewing history for ${patient.firstName} ${patient.lastName}`,
+      title: "Patient History",
+      description: `Viewing appointment history for ${patient.firstName} ${patient.lastName}. This feature is coming soon.`,
     });
   };
 
   const handleDeactivatePatient = async (patient: any) => {
-    try {
-      const response = await fetch(`/api/patients/${patient.id}`, {
-        method: "PUT",
-        headers: {
-          ...getAuthHeaders(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ isActive: false }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to deactivate patient");
+    if (confirm(`Are you sure you want to deactivate ${patient.firstName} ${patient.lastName}? This action can be reversed later.`)) {
+      try {
+        const response = await fetch(`/api/patients/${patient.id}`, {
+          method: "PUT",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ isActive: false }),
+        });
+        
+        if (!response.ok) throw new Error("Failed to deactivate patient");
+        
+        queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+        toast({
+          title: "Patient Deactivated",
+          description: `${patient.firstName} ${patient.lastName} has been deactivated successfully`,
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to deactivate patient",
+          variant: "destructive",
+        });
       }
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
-      
-      toast({
-        title: "Patient Deactivated",
-        description: `${patient.firstName} ${patient.lastName} has been deactivated`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to deactivate patient",
-        variant: "destructive",
-      });
     }
+  };
+
+  const formatLastVisit = (createdAt: string) => {
+    return format(new Date(createdAt), "MMM dd, yyyy");
   };
 
   return (
@@ -159,7 +225,7 @@ export default function PatientsPage() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" size={16} />
               <Input
-                placeholder="Search by name, phone, or ID..."
+                placeholder="Search by name, phone, or ID... (e.g., 'Akash Panchani' or 'Akash')"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -279,7 +345,7 @@ export default function PatientsPage() {
                             variant="ghost" 
                             size="sm" 
                             className="text-primary hover:text-primary-dark"
-                            onClick={() => handleViewPatient(patient)}
+                            onClick={() => handleViewDetails(patient)}
                             data-testid={`button-view-${patient.id}`}
                           >
                             View
@@ -310,7 +376,7 @@ export default function PatientsPage() {
                               <DropdownMenuItem onClick={() => handleViewHistory(patient)}>
                                 View History
                               </DropdownMenuItem>
-                              {hasPermission(currentUser?.role as UserRole, 'patients.deactivate') && (
+                              {patient.isActive && hasPermission(currentUser?.role as UserRole, 'patients.deactivate') && (
                                 <DropdownMenuItem 
                                   className="text-destructive"
                                   onClick={() => handleDeactivatePatient(patient)}
@@ -333,12 +399,17 @@ export default function PatientsPage() {
                           No patients found
                         </h3>
                         <p className="mt-1 text-sm text-gray-500">
-                          {searchQuery 
-                            ? "Try adjusting your search terms." 
+                          {debouncedSearchQuery 
+                            ? `No results for "${debouncedSearchQuery}". Try searching for first name, last name, or full name.` 
                             : "Get started by adding a new patient."
                           }
                         </p>
-                        {!searchQuery && hasPermission(currentUser?.role as UserRole, 'patients.create') && (
+                        {debouncedSearchQuery && (
+                          <p className="mt-1 text-xs text-gray-400">
+                            Search is case-insensitive and matches partial names.
+                          </p>
+                        )}
+                        {!debouncedSearchQuery && hasPermission(currentUser?.role as UserRole, 'patients.create') && (
                           <div className="mt-4">
                             <Button
                               onClick={() => setShowPatientModal(true)}
@@ -423,6 +494,27 @@ export default function PatientsPage() {
       <NewPatientModal
         open={showPatientModal}
         onOpenChange={setShowPatientModal}
+      />
+      
+      <PatientDetailsModal
+        open={showPatientDetails}
+        onOpenChange={setShowPatientDetails}
+        patient={selectedPatient}
+        onEdit={handleEditPatient}
+        onSchedule={handleScheduleAppointment}
+        onViewHistory={handleViewHistory}
+      />
+      
+      <EditPatientModal
+        open={showEditPatient}
+        onOpenChange={setShowEditPatient}
+        patient={selectedPatient}
+      />
+      
+      <NewAppointmentModal
+        open={showScheduleAppointment}
+        onOpenChange={setShowScheduleAppointment}
+        preselectedPatient={selectedPatient}
       />
       
       <PatientsFilterSidebar

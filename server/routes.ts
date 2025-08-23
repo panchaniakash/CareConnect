@@ -96,13 +96,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Patient routes
   app.get("/api/patients", authenticate, async (req: AuthRequest, res) => {
     try {
-      const query = req.query.query as string;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const filters = {
+        query: req.query.query as string,
+        limit: parseInt(req.query.limit as string) || 10,
+        offset: parseInt(req.query.offset as string) || 0,
+        status: req.query.status as string,
+        gender: req.query.gender as string,
+        clinic: req.query.clinic as string,
+        minAge: req.query.minAge ? parseInt(req.query.minAge as string) : undefined,
+        maxAge: req.query.maxAge ? parseInt(req.query.maxAge as string) : undefined,
+        dateFrom: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
+        dateTo: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined,
+        hasUpcomingAppointment: req.query.hasUpcomingAppointment === 'true'
+      };
 
-      const patients = await storage.getPatients(query, limit, offset);
+      // Clean up undefined values
+      Object.keys(filters).forEach(key => {
+        if (filters[key as keyof typeof filters] === undefined) {
+          delete filters[key as keyof typeof filters];
+        }
+      });
+
+      const patients = await storage.getPatients(filters);
       res.json(patients);
     } catch (error) {
+      console.error('Patient filtering error:', error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

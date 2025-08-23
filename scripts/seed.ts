@@ -76,8 +76,9 @@ async function seed() {
 
     console.log('✓ Created users');
 
-    // Create patients with Indian names
+    // Create patients with Indian names (including Akash Panchani for testing)
     const patientData = [
+      { firstName: 'Akash', lastName: 'Panchani', phone: '+91 98765 43200', email: 'akash.panchani@email.com', gender: 'male' as const },
       { firstName: 'Arjun', lastName: 'Sharma', phone: '+91 98765 43210', email: 'arjun.sharma@email.com', gender: 'male' as const },
       { firstName: 'Priya', lastName: 'Gupta', phone: '+91 98765 43211', email: 'priya.gupta@email.com', gender: 'female' as const },
       { firstName: 'Rahul', lastName: 'Singh', phone: '+91 98765 43212', email: 'rahul.singh@email.com', gender: 'male' as const },
@@ -115,7 +116,16 @@ async function seed() {
     const appointmentTypes = ['consultation', 'checkup', 'followup', 'emergency'] as const;
     const appointmentStatuses = ['scheduled', 'confirmed', 'pending', 'completed'] as const;
     
-    const appointments_data = [];
+    const appointments_data: Array<{
+      patientId: string;
+      clinicId: string;
+      doctorId: string;
+      appointmentDate: Date;
+      duration: number;
+      type: "consultation" | "checkup" | "followup" | "emergency";
+      status: "scheduled" | "confirmed" | "pending" | "completed";
+      notes: string;
+    }> = [];
     const today = new Date();
     
     for (let i = 0; i < 15; i++) {

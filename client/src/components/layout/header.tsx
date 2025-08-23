@@ -6,10 +6,12 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Heart, Bell, ChevronDown, LogOut, User, Calendar, Settings, Shield, Users } from "lucide-react";
 import { canAccessAdminConsole, UserRole } from "@/lib/permissions";
+import { useToast } from "@/hooks/use-toast";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard" },
@@ -21,10 +23,39 @@ const navigation = [
 export default function Header() {
   const [location] = useLocation();
   const user = getCurrentUser();
+  const { toast } = useToast();
   
   const handleLogout = () => {
     removeToken();
     window.location.reload();
+  };
+
+  const handleProfileSettings = () => {
+    toast({
+      title: "Profile & Settings",
+      description: "Profile settings page is coming soon. You can update your information here.",
+    });
+  };
+
+  const handleNotificationSettings = () => {
+    toast({
+      title: "Notification Settings",
+      description: "Notification preferences will be available soon. Configure email and SMS alerts here.",
+    });
+  };
+
+  const handleAdminConsole = () => {
+    toast({
+      title: "Admin Console",
+      description: "Admin console functionality is coming soon. Manage users, clinics, and system settings here.",
+    });
+  };
+
+  const handleNotifications = () => {
+    toast({
+      title: "Notifications",
+      description: "You have no new notifications at this time.",
+    });
   };
 
   const getInitials = (name: string) => {
@@ -69,7 +100,12 @@ export default function Header() {
           </div>
           
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" data-testid="button-notifications">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleNotifications}
+              data-testid="button-notifications"
+            >
               <Bell size={18} className="text-text-secondary hover:text-text-primary" />
             </Button>
             
@@ -89,26 +125,46 @@ export default function Header() {
               </DropdownMenuTrigger>
               
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem data-testid="menu-profile">
+                <div className="flex items-center gap-3 p-3 border-b">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {user ? getInitials(user.name) : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium">{user?.name || "User"}</p>
+                    <p className="text-xs text-text-secondary">{user?.email || "user@example.com"}</p>
+                  </div>
+                </div>
+                
+                <DropdownMenuItem onClick={handleProfileSettings} data-testid="menu-profile">
                   <User size={16} className="mr-2" />
                   Profile & Settings
                 </DropdownMenuItem>
+                
                 <Link href="/schedule">
                   <DropdownMenuItem data-testid="menu-calendar">
                     <Calendar size={16} className="mr-2" />
                     My Calendar
                   </DropdownMenuItem>
                 </Link>
-                <DropdownMenuItem data-testid="menu-notifications">
+                
+                <DropdownMenuItem onClick={handleNotificationSettings} data-testid="menu-notifications">
                   <Settings size={16} className="mr-2" />
                   Notification Settings
                 </DropdownMenuItem>
+                
                 {canAccessAdminConsole(user?.role as UserRole) && (
-                  <DropdownMenuItem data-testid="menu-admin">
-                    <Shield size={16} className="mr-2" />
-                    Admin Console
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleAdminConsole} data-testid="menu-admin">
+                      <Shield size={16} className="mr-2" />
+                      Admin Console
+                    </DropdownMenuItem>
+                  </>
                 )}
+                
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} data-testid="menu-logout">
                   <LogOut size={16} className="mr-2" />
                   Sign Out
