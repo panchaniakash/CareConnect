@@ -36,6 +36,7 @@ import { Search } from "lucide-react";
 interface NewAppointmentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  preselectedPatient?: any;
 }
 
 const extendedSchema = insertAppointmentSchema.extend({
@@ -59,19 +60,19 @@ const timeSlots = [
   "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"
 ];
 
-export default function NewAppointmentModal({ open, onOpenChange }: NewAppointmentModalProps) {
+export default function NewAppointmentModal({ open, onOpenChange, preselectedPatient }: NewAppointmentModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const user = getCurrentUser();
-  const [patientSearch, setPatientSearch] = useState("");
-  const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [patientSearch, setPatientSearch] = useState(preselectedPatient ? `${preselectedPatient.firstName} ${preselectedPatient.lastName}` : "");
+  const [selectedPatient, setSelectedPatient] = useState<any>(preselectedPatient || null);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
 
   const form = useForm<InsertAppointment>({
     resolver: zodResolver(extendedSchema),
     defaultValues: {
-      patientId: "",
+      patientId: preselectedPatient?.id || "",
       clinicId: "",
       doctorId: user?.id || "",
       appointmentDate: new Date(),

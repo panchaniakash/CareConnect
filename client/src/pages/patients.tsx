@@ -46,7 +46,7 @@ export default function PatientsPage() {
   const [pageSize] = useState(10);
   const [filters, setFilters] = useState({
     status: "",
-    dateRange: { from: undefined, to: undefined },
+    dateRange: { from: undefined as Date | undefined, to: undefined as Date | undefined },
     ageRange: { min: "", max: "" },
     gender: "",
     clinic: "",
@@ -233,10 +233,17 @@ export default function PatientsPage() {
               />
             </div>
             <div className="flex gap-2">
-              <select className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
-                <option>All Status</option>
-                <option>Active</option>
-                <option>Inactive</option>
+              <select 
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                value={filters.status}
+                onChange={(e) => {
+                  setFilters({ ...filters, status: e.target.value });
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
               </select>
               <Button 
                 variant="outline" 

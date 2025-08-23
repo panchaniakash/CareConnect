@@ -164,7 +164,7 @@ export class DatabaseStorage implements IStorage {
     
     // Gender filter
     if (gender) {
-      conditions.push(eq(patients.gender, gender));
+      conditions.push(eq(patients.gender, gender as any));
     }
     
     // Age range filters
