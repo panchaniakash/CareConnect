@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { getAuthHeaders } from "@/lib/auth";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import NewAppointmentModal from "@/components/modals/new-appointment-modal";
+import AppointmentDetailsModal from "@/components/modals/appointment-details-modal";
 import { format, addDays, startOfWeek, addWeeks, subWeeks, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval } from "date-fns";
 
 const timeSlots = [
@@ -14,6 +15,8 @@ const timeSlots = [
 
 export default function SchedulePage() {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showAppointmentDetails, setShowAppointmentDetails] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("week");
 
@@ -78,6 +81,11 @@ export default function SchedulePage() {
   const isToday = (date: Date) => {
     const today = new Date();
     return format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
+  };
+
+  const handleAppointmentClick = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setShowAppointmentDetails(true);
   };
 
   return (
@@ -193,7 +201,8 @@ export default function SchedulePage() {
                     >
                       {appointment && (
                         <div 
-                          className={`p-3 rounded h-full flex flex-col justify-between ${getStatusColor(appointment.status)}`}
+                          className={`p-3 rounded h-full flex flex-col justify-between cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(appointment.status)}`}
+                          onClick={() => handleAppointmentClick(appointment)}
                           data-testid={`appointment-${appointment.id}`}
                         >
                           <div className="font-medium">
@@ -265,7 +274,8 @@ export default function SchedulePage() {
                         >
                           {appointment && (
                             <div 
-                              className={`p-2 rounded text-xs h-full flex flex-col justify-between ${getStatusColor(appointment.status)}`}
+                              className={`p-2 rounded text-xs h-full flex flex-col justify-between cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(appointment.status)}`}
+                              onClick={() => handleAppointmentClick(appointment)}
                               data-testid={`appointment-${appointment.id}`}
                             >
                               <div className="font-medium truncate">
@@ -320,7 +330,8 @@ export default function SchedulePage() {
                         {dayAppointments.slice(0, 3).map((apt: any) => (
                           <div 
                             key={apt.id}
-                            className={`text-xs p-1 rounded truncate ${getStatusColor(apt.status)}`}
+                            className={`text-xs p-1 rounded truncate cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(apt.status)}`}
+                            onClick={() => handleAppointmentClick(apt)}
                             data-testid={`month-appointment-${apt.id}`}
                           >
                             {apt.patient.firstName} {apt.patient.lastName}
@@ -342,6 +353,12 @@ export default function SchedulePage() {
       <NewAppointmentModal 
         open={showAppointmentModal} 
         onOpenChange={setShowAppointmentModal} 
+      />
+      
+      <AppointmentDetailsModal
+        open={showAppointmentDetails}
+        onOpenChange={setShowAppointmentDetails}
+        appointment={selectedAppointment}
       />
     </div>
   );

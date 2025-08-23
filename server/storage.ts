@@ -75,14 +75,42 @@ export class DatabaseStorage implements IStorage {
     const conditions = [eq(patients.isActive, true)];
     
     if (query) {
-      const searchCondition = or(
-        ilike(patients.firstName, `%${query}%`),
-        ilike(patients.lastName, `%${query}%`),
-        ilike(patients.phone, `%${query}%`),
-        ilike(patients.email, `%${query}%`)
-      );
-      if (searchCondition) {
-        conditions.push(searchCondition);
+      // Support full name search by splitting query into parts
+      const queryParts = query.trim().split(/\s+/);
+      
+      if (queryParts.length > 1) {
+        // Multi-word search - try as full name (firstName lastName)
+        const [firstName, ...lastNameParts] = queryParts;
+        const lastName = lastNameParts.join(' ');
+        
+        const fullNameCondition = and(
+          ilike(patients.firstName, `%${firstName}%`),
+          ilike(patients.lastName, `%${lastName}%`)
+        );
+        
+        // Also search individual fields
+        const individualFieldsCondition = or(
+          ilike(patients.firstName, `%${query}%`),
+          ilike(patients.lastName, `%${query}%`),
+          ilike(patients.phone, `%${query}%`),
+          ilike(patients.email, `%${query}%`)
+        );
+        
+        const searchCondition = or(fullNameCondition, individualFieldsCondition);
+        if (searchCondition) {
+          conditions.push(searchCondition);
+        }
+      } else {
+        // Single word search
+        const searchCondition = or(
+          ilike(patients.firstName, `%${query}%`),
+          ilike(patients.lastName, `%${query}%`),
+          ilike(patients.phone, `%${query}%`),
+          ilike(patients.email, `%${query}%`)
+        );
+        if (searchCondition) {
+          conditions.push(searchCondition);
+        }
       }
     }
     

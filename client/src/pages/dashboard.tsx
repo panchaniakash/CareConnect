@@ -4,11 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAuthHeaders } from "@/lib/auth";
-import { Plus, Calendar, Users, Clock, CheckCircle, AlertTriangle, TriangleAlert, UserPlus, Search } from "lucide-react";
+import { Plus, Calendar, Users, Clock, CheckCircle, AlertTriangle, TriangleAlert, UserPlus, Search, MoreVertical } from "lucide-react";
 import NewPatientModal from "@/components/modals/new-patient-modal";
 import NewAppointmentModal from "@/components/modals/new-appointment-modal";
 import { useState } from "react";
 import { format } from "date-fns";
+import { Link } from "wouter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function DashboardPage() {
   const [showPatientModal, setShowPatientModal] = useState(false);
@@ -199,9 +206,30 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex items-center space-x-2">
                         {getStatusBadge(appointment.status)}
-                        <Button variant="ghost" size="sm">
-                          •••
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" data-testid={`appointment-actions-${appointment.id}`}>
+                              <MoreVertical size={16} />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {/* TODO: Implement view details */}}>
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {/* TODO: Implement reschedule */}}>
+                              Reschedule
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {/* TODO: Implement mark complete */}}>
+                              Mark Complete
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => {/* TODO: Implement cancel */}}
+                            >
+                              Cancel Appointment
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))}
@@ -279,10 +307,12 @@ export default function DashboardPage() {
                 <UserPlus size={16} className="mr-2" />
                 Add Patient
               </Button>
-              <Button variant="outline" className="w-full" data-testid="button-search-records">
-                <Search size={16} className="mr-2" />
-                Search Records
-              </Button>
+              <Link href="/patients">
+                <Button variant="outline" className="w-full" data-testid="button-search-records">
+                  <Search size={16} className="mr-2" />
+                  Search Records
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

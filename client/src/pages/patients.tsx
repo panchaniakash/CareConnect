@@ -9,6 +9,8 @@ import { getAuthHeaders } from "@/lib/auth";
 import { Plus, Search, Filter, MoreHorizontal } from "lucide-react";
 import NewPatientModal from "@/components/modals/new-patient-modal";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Table,
   TableBody,
@@ -27,13 +29,21 @@ import {
 export default function PatientsPage() {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFilterSidebar, setShowFilterSidebar] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [showPatientDetails, setShowPatientDetails] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: patients, isLoading } = useQuery({
-    queryKey: ["/api/patients", { query: searchQuery }],
+    queryKey: ["/api/patients", { query: searchQuery, page: currentPage, limit: pageSize }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("query", searchQuery);
+      params.append("limit", pageSize.toString());
+      params.append("offset", ((currentPage - 1) * pageSize).toString());
       
       const response = await fetch(`/api/patients?${params.toString()}`, {
         headers: getAuthHeaders(),
@@ -49,6 +59,62 @@ export default function PatientsPage() {
 
   const formatLastVisit = (createdAt: string) => {
     return format(new Date(createdAt), "MMM dd, yyyy");
+  };
+
+  const handleViewPatient = (patient: any) => {
+    setSelectedPatient(patient);
+    setShowPatientDetails(true);
+  };
+
+  const handleEditPatient = (patient: any) => {
+    setSelectedPatient(patient);
+    setShowPatientModal(true);
+  };
+
+  const handleScheduleAppointment = async (patient: any) => {
+    // TODO: Open appointment modal with patient pre-selected
+    toast({
+      title: "Schedule Appointment",
+      description: `Scheduling appointment for ${patient.firstName} ${patient.lastName}`,
+    });
+  };
+
+  const handleViewHistory = (patient: any) => {
+    // TODO: Navigate to patient history page
+    toast({
+      title: "View History",
+      description: `Viewing history for ${patient.firstName} ${patient.lastName}`,
+    });
+  };
+
+  const handleDeactivatePatient = async (patient: any) => {
+    try {
+      const response = await fetch(`/api/patients/${patient.id}`, {
+        method: "PUT",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isActive: false }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to deactivate patient");
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      
+      toast({
+        title: "Patient Deactivated",
+        description: `${patient.firstName} ${patient.lastName} has been deactivated`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to deactivate patient",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -92,7 +158,12 @@ export default function PatientsPage() {
                 <option>Active</option>
                 <option>Inactive</option>
               </select>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowFilterSidebar(true)}
+                data-testid="button-filter"
+              >
                 <Filter size={16} />
               </Button>
             </div>
@@ -194,6 +265,7 @@ export default function PatientsPage() {
                             variant="ghost" 
                             size="sm" 
                             className="text-primary hover:text-primary-dark"
+                            onClick={() => handleViewPatient(patient)}
                             data-testid={`button-view-${patient.id}`}
                           >
                             View
@@ -202,6 +274,7 @@ export default function PatientsPage() {
                             variant="ghost" 
                             size="sm" 
                             className="text-text-secondary hover:text-text-primary"
+                            onClick={() => handleEditPatient(patient)}
                             data-testid={`button-edit-${patient.id}`}
                           >
                             Edit
@@ -217,9 +290,16 @@ export default function PatientsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Schedule Appointment</DropdownMenuItem>
-                              <DropdownMenuItem>View History</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem onClick={() => handleScheduleAppointment(patient)}>
+                                Schedule Appointment
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleViewHistory(patient)}>
+                                View History
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => handleDeactivatePatient(patient)}
+                              >
                                 Deactivate
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -265,36 +345,54 @@ export default function PatientsPage() {
             <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
               <div className="flex items-center justify-between">
                 <div className="flex-1 flex justify-between sm:hidden">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    data-testid="button-prev-mobile"
+                  >
                     Previous
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    disabled={!patients || patients.length < pageSize}
+                    data-testid="button-next-mobile"
+                  >
                     Next
                   </Button>
                 </div>
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-text-secondary">
-                      Showing <span className="font-medium">1</span> to{" "}
-                      <span className="font-medium">{Math.min(10, patients.length)}</span> of{" "}
-                      <span className="font-medium">{patients.length}</span> results
+                      Showing <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> to{" "}
+                      <span className="font-medium">{Math.min(currentPage * pageSize, ((currentPage - 1) * pageSize) + (patients?.length || 0))}</span> of{" "}
+                      <span className="font-medium">many</span> results
                     </p>
                   </div>
                   <div>
                     <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        data-testid="button-prev-desktop"
+                      >
                         Previous
                       </Button>
                       <Button variant="outline" size="sm" className="bg-primary text-white">
-                        1
+                        {currentPage}
                       </Button>
-                      <Button variant="outline" size="sm">
-                        2
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        3
-                      </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => prev + 1)}
+                        disabled={!patients || patients.length < pageSize}
+                        data-testid="button-next-desktop"
+                      >
                         Next
                       </Button>
                     </nav>
