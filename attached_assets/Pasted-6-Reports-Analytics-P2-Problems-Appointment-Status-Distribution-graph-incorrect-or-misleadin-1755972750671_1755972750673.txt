@@ -1,0 +1,241 @@
+6 — Reports & Analytics (P2)
+
+Problems
+
+Appointment Status Distribution graph incorrect or misleading.
+
+Export Reports option not working.
+
+Fixes
+
+Graph
+
+Recompute distribution based on canonical statuses (Scheduled, Completed, Cancelled, No-Show, Rescheduled).
+
+Use server-provided aggregated counts for accuracy (don’t rely on client filtering unless consistent).
+
+Show absolute counts and percentages; include legend and tooltips.
+
+Validate time range and filters apply correctly.
+
+Export
+
+Implement export to CSV/Excel/PDF using server-side generation or robust client-side CSV builder.
+
+Export should respect the current filters/time range and user permissions.
+
+Provide a progress indicator and success/download link.
+
+Acceptance criteria
+
+Distribution chart matches backend aggregation and legend is correct.
+
+Export button generates a file that contains the filter-applied dataset and downloads reliably.
+
+7 — Header / Profile (P1)
+
+Problem
+
+Top-right profile button is not working.
+
+Fix
+
+Ensure the profile button opens a dropdown with:
+
+Profile / Settings
+
+My Calendar
+
+Notification settings
+
+Switch Role (if user has multiple roles)
+
+Admin Console (if permitted)
+
+Logout
+
+Include keyboard accessibility and ARIA attributes.
+
+Acceptance criteria
+
+Clicking profile opens the dropdown and each menu item navigates or opens the appropriate dialog.
+
+8 — Admin / Permissions & Multi-UI (P1 / P2)
+
+Main ask
+
+"How can I create rights based on user's role?"
+
+"Can we create different UI in same login for master-admin vs others so master-admin can create users and manage rights?"
+
+Recommended approach: Role-Based Access Control (RBAC) + UI feature flags
+
+RBAC model
+
+Core entities: Role, Permission, User.
+
+Permission is granular (e.g., patients.view, patients.edit, appointments.create, reports.export, admin.manage_users).
+
+Role groups permissions (e.g., master-admin, clinic-admin, receptionist, doctor, analytics-only).
+
+Assign roles to users, allow multiple roles per user (effective permissions = union).
+
+Admin Console
+
+Master-Admin UI: Has access to a dedicated Admin Console page:
+
+Create/Edit Roles
+
+Assign Permissions to Roles
+
+Create/Edit Users and assign Roles
+
+View Audit Logs
+
+Scoped Admins: Admins limited to specific locations/clinics (scoping).
+
+UI should show/hide or disable features at runtime based on the current user’s permissions.
+
+Implementation tips
+
+Enforce permissions server-side for APIs (do not rely on frontend hiding only).
+
+Cache permission set in JWT or a short-lived session token for faster client-side checks.
+
+Provide a UI preview mode: toggle "Preview as role X" so master-admins can see the UI of any role.
+
+Feature flags for experimental UI (allow master admins to enable/disable new features per tenant).
+
+Suggested permission matrix (example)
+
+admin.manage_users, admin.manage_roles, patients.view, patients.edit, appointments.create, appointments.reschedule, reports.view, reports.export, schedule.view_others, clinical.notes.edit, etc.
+
+Acceptance criteria
+
+Master-admin can create roles, assign permissions, create users and assign roles.
+
+UI components check permission and either hide or disable actions appropriately.
+
+Server enforces permission checks for each protected endpoint.
+
+9 — “Out of the box” features to take the product to the next level (P3 / strategic)
+
+Short list of high-impact ideas you can prioritize later:
+
+Smart Scheduling
+
+Auto-suggest best appointment slots based on provider availability, patient preferences and appointment type.
+
+Waitlist and auto-fill when slots open.
+
+AI Triage & Summaries
+
+Automated appointment summaries and key insights (uses NLP on clinical notes).
+
+Auto-suggest appointment durations based on historical data.
+
+Patient Portal / SMS & Email Workflow
+
+Self-scheduling for patients, appointment reminders, two-way SMS confirmations, intake form links.
+
+Telemedicine Integration
+
+One-click video call with meeting link and session recording metadata.
+
+Advanced Analytics
+
+Heatmaps of busiest times, provider utilization scores, revenue by service, no-show risk predictions.
+
+Audit Logs & Compliance
+
+Immutable audit trail for admin actions, patient record access, and exports (useful for healthcare compliance).
+
+Multi-tenant / Multi-location Support
+
+Tenants or clinic-level scoping with a master-admin dashboard.
+
+UX & Productivity
+
+Keyboard shortcuts, quick-add appointment flow, dark mode, bulk actions (deactivate multiple patients), undo for destructive actions.
+
+Developer & QA
+
+Add end-to-end tests (Cypress / Playwright) for critical flows and CI gate.
+
+API docs and Postman collection for integrations.
+
+10 — Suggested immediate backlog (recommended ordering)
+
+Sprint 1 (P1)
+
+Fix Search Records button and Patients full-name search.
+
+Fix Patients Actions (View/Edit/Schedule/View History/Deactivate).
+
+Fix Profile dropdown.
+
+Fix calendar appointment click details and add Reschedule dialog.
+
+Sprint 2 (P1/P2)
+
+Pagination and filter pane fixes on Patients page.
+
+Implement 3-dot menu actions in Today’s Schedule.
+
+Reports: fix distribution graph accuracy.
+
+Sprint 3 (P2/P3)
+
+Implement Export Reports.
+
+Build RBAC skeleton and Admin Console MVP (manage users, roles).
+
+Add drag-and-drop reschedule + conflict handling.
+
+Sprint 4 (P3)
+
+Smart scheduling, patient portal integrations, analytics enhancements.
+
+11 — Technical notes & QA checklist (developer-friendly)
+
+Check browser console for JS errors on each broken button — look for undefined or missing function references.
+
+Ensure endpoints used by buttons exist and accept expected payload (POST/PUT/GET).
+
+For patient search: ensure api/patients?search= supports full-name; add indexing or server-side LOWER(CONCAT(first,last)) LIKE %query%.
+
+Pagination: agree on server pagination contract { page, size } → { items, total }.
+
+Permissions: enforce RBAC server-side middleware for each protected route.
+
+Add E2E tests for:
+
+Searching “Akash Panchani”.
+
+Opening and using 3-dot menu actions.
+
+Rescheduling an appointment and confirming it in calendar.
+
+Exporting reports and validating CSV content.
+
+12 — Example acceptance test (sample)
+
+Title: Search returns patient by full name
+Steps:
+
+Go to Patients page.
+
+Enter Akash Panchani in search input and press Enter.
+Expected result:
+
+Patient card/row for Akash Panchani appears.
+
+If multiple matches exist, show them in list.
+
+No errors in console.
+
+13 — Final notes
+
+I focused on making each bug actionable and testable — every item above includes expected behaviour and acceptance criteria so developers/QA can quickly close tickets.
+
+If you’d like, I can convert this into a JIRA-ready ticket set (title, description, acceptance criteria, priority) or create a visual mock for the 3-dot menu + reschedule modal. Tell me which page to start with and I’ll produce the ticket cards immediately — no waiting.
