@@ -86,25 +86,43 @@ export const appointmentsRelations = relations(appointments, ({ one }) => ({
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users, {
+  createdAt: z.coerce.date(), // 👈 allows string or Dat
+  updatedAt: z.coerce.date(), // 👈 allows string or Date
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPatientSchema = createInsertSchema(patients).omit({
+// export const insertPatientSchema = createInsertSchema(patients).omit({
+//   id: true,
+//   createdAt: true,
+//   updatedAt: true,
+// });
+
+export const insertPatientSchema = createInsertSchema(patients, {
+  dateOfBirth: z.coerce.date().optional(), // 👈 fixes date issue
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+
+export const insertAppointmentSchema = createInsertSchema(appointments, {
+  appointmentDate: z.coerce.date(),  // 👈 allows string or Date
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertClinicSchema = createInsertSchema(clinics).omit({
+
+
+export const insertClinicSchema = createInsertSchema(clinics, {
+  createdAt: z.coerce.date(), // 👈 allows string or Date
+}).omit({
   id: true,
   createdAt: true,
 });

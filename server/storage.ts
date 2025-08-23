@@ -7,6 +7,8 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, or, ilike, desc, asc } from "drizzle-orm";
+import dotenv from "dotenv";
+dotenv.config();
 
 export interface IStorage {
   // User methods

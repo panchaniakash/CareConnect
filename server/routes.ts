@@ -10,6 +10,8 @@ import {
   insertUserSchema,
   insertClinicSchema
 } from "@shared/schema";
+import dotenv from "dotenv";
+dotenv.config();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   

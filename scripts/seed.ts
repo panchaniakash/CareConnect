@@ -4,6 +4,8 @@ import { users, clinics, patients, appointments } from '../shared/schema';
 import bcrypt from 'bcryptjs';
 import ws from 'ws';
 import * as schema from '../shared/schema';
+import dotenv from "dotenv";
+dotenv.config();
 
 neonConfig.webSocketConstructor = ws;
 
