@@ -112,8 +112,8 @@ export default function AdminConsole() {
     loadStats();
   }, []);
 
-  // Check permissions
-  if (!canAccessAdminConsole()) {
+  // Check permissions with user role fallback
+  if (!canAccessAdminConsole(user?.role as any)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
