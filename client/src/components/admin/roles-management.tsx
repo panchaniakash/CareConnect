@@ -116,7 +116,8 @@ export default function RolesManagement() {
         </div>
         <button
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center space-x-2"
-          disabled
+          onClick={() => alert('Custom role creation coming soon!')}
+          data-testid="button-add-custom-role"
         >
           <Plus className="h-4 w-4" />
           <span>Add Custom Role</span>

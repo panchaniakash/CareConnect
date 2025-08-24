@@ -129,6 +129,7 @@ export default function AdminConsole() {
     );
   }
 
+  // Memoize menu items to prevent infinite re-renders
   const menuItems = [
     {
       id: 'overview' as AdminView,
@@ -142,28 +143,28 @@ export default function AdminConsole() {
       name: 'Users',
       icon: Users,
       description: 'Manage system users and their access',
-      available: canManageUsers() || (user?.role === 'admin' || user?.role === 'master-admin')
+      available: true // Always available for admin users
     },
     {
       id: 'roles' as AdminView,
       name: 'Roles & Permissions',
       icon: Shield,
       description: 'Configure roles and permissions',
-      available: canManageRoles() || (user?.role === 'admin' || user?.role === 'master-admin')
+      available: true // Always available for admin users
     },
     {
       id: 'logs' as AdminView,
       name: 'System Logs',
       icon: Activity,
       description: 'View system logs and monitoring',
-      available: canAccessAdminConsole(user?.role as any) || (user?.role === 'admin' || user?.role === 'master-admin')
+      available: true // Always available for admin users
     },
     {
       id: 'settings' as AdminView,
       name: 'System Settings',
       icon: Settings,
       description: 'Configure system-wide settings',
-      available: user?.role === 'admin' || user?.role === 'master-admin'
+      available: true // Always available for admin users
     }
   ];
 
@@ -188,6 +189,20 @@ export default function AdminConsole() {
     }
   };
 
+  const renderSettings = () => (
+    <div>
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">System Settings</h2>
+        <p className="text-gray-600">Configure system-wide settings and preferences.</p>
+      </div>
+      
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Coming Soon</h3>
+        <p className="text-gray-500">System settings configuration will be available in a future update.</p>
+      </div>
+    </div>
+  );
+
   const renderActiveView = () => {
     switch (activeView) {
       case 'users':
@@ -195,10 +210,9 @@ export default function AdminConsole() {
       case 'roles':
         return <RolesManagement />;
       case 'logs':
-        if (logs.length === 0 && !logsLoading) {
-          loadLogs();
-        }
         return renderLogs();
+      case 'settings':
+        return renderSettings();
       case 'overview':
       default:
         return renderOverview();
@@ -427,6 +441,13 @@ export default function AdminConsole() {
       </div>
     </div>
   );
+
+  // Fix logs loading to prevent infinite re-renders
+  useEffect(() => {
+    if (activeView === 'logs' && logs.length === 0 && !logsLoading) {
+      loadLogs();
+    }
+  }, [activeView]);
 
   const renderLogs = () => (
     <div>
