@@ -203,6 +203,6 @@ export function getRoleDisplayName(role: UserRole): string {
     case 'staff':
       return 'Staff';
     default:
-      return role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+      return (role as string).replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
   }
 }

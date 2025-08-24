@@ -569,6 +569,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // System monitoring and health endpoints
+  app.get("/api/admin/system/health", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.view_console')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      // Get system statistics
+      const [patients, appointments, users, roles] = await Promise.all([
+        storage.getPatients({ limit: 1000, offset: 0 }),
+        storage.getAppointments({}),
+        storage.getUsers({ limit: 1000, offset: 0 }),
+        storage.getRoles()
+      ]);
+
+      // Calculate today's appointments
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const todayAppointments = appointments.filter(apt => {
+        const aptDate = new Date(apt.appointmentDate);
+        return aptDate >= today && aptDate < tomorrow;
+      }).length;
+
+      // Calculate uptime (process uptime in readable format)
+      const uptime = process.uptime();
+      const hours = Math.floor(uptime / 3600);
+      const minutes = Math.floor((uptime % 3600) / 60);
+      const uptimeStr = `${hours}h ${minutes}m`;
+
+      const healthData = {
+        totalUsers: users.length,
+        activeUsers: users.filter(u => u.isActive).length,
+        totalRoles: roles.length,
+        systemRoles: roles.filter(r => r.isSystemRole).length,
+        totalPatients: patients.length,
+        todayAppointments,
+        systemUptime: uptimeStr,
+        databaseStatus: 'healthy' as const,
+        timestamp: new Date().toISOString()
+      };
+
+      res.json(healthData);
+    } catch (error) {
+      console.error('System health check failed:', error);
+      res.status(500).json({ message: "Failed to get system health", databaseStatus: 'error' });
+    }
+  });
+
+  app.get("/api/admin/system/logs", authenticate, async (req: AuthRequest, res) => {
+    try {
+      const userPermissions = await storage.getUserPermissions(req.user!.id);
+      if (!userPermissions.includes('admin.view_console')) {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      // Simple log entries - in a real app, this would come from actual log files
+      const mockLogs = [
+        { timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), level: 'info', message: 'System health check completed successfully', source: 'system' },
+        { timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(), level: 'info', message: 'User authentication successful', source: 'auth' },
+        { timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), level: 'info', message: 'Database connection pool status: healthy', source: 'database' },
+        { timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), level: 'warn', message: 'High memory usage detected: 78%', source: 'system' },
+        { timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), level: 'info', message: 'Scheduled backup completed', source: 'backup' },
+      ];
+
+      res.json(mockLogs);
+    } catch (error) {
+      console.error('Failed to get system logs:', error);
+      res.status(500).json({ message: "Failed to get system logs" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
