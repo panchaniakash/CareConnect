@@ -136,8 +136,14 @@ export function canExportReports(): boolean {
   return hasPermission('reports.export');
 }
 
-// Admin console access function
+// Admin console access function - uses proper RBAC system
 export function canAccessAdminConsole(userRole?: UserRole): boolean {
+  // First try the proper RBAC system (server-loaded permissions)
+  if (hasPermission('admin.view_console')) {
+    return true;
+  }
+  
+  // Fallback to legacy role-based system if no server permissions loaded
   return hasLegacyRolePermission(userRole, 'admin.view_console');
 }
 

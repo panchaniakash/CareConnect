@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Users, Shield, Settings, Activity, ChevronRight, UserPlus, ShieldCheck, Server, Database, Clock, AlertCircle } from 'lucide-react';
-import { canAccessAdminConsole, canManageUsers, canManageRoles } from '../lib/permissions';
+import { canAccessAdminConsole, canManageUsers, canManageRoles, loadUserPermissions, setUserPermissions } from '../lib/permissions';
 import { getCurrentUser } from '../lib/auth';
 import UsersManagement from '../components/admin/users-management';
 import RolesManagement from '../components/admin/roles-management';
@@ -32,6 +32,32 @@ export default function AdminConsole() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
+
+  // Load permissions on mount
+  useEffect(() => {
+    const loadPermissions = async () => {
+      const user = getCurrentUser();
+      if (!user) return;
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const permissionsRes = await fetch(`/api/admin/users/${user.id}/permissions`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (permissionsRes.ok) {
+          const permissions = await permissionsRes.json();
+          setUserPermissions(permissions);
+        }
+      } catch (error) {
+        console.error('Failed to load permissions:', error);
+      }
+    };
+
+    loadPermissions();
+  }, []);
 
   useEffect(() => {
     // Load admin statistics
@@ -82,9 +108,8 @@ export default function AdminConsole() {
       }
     };
 
-    if (canAccessAdminConsole()) {
-      loadStats();
-    }
+    // Always load stats - permission check is done in render
+    loadStats();
   }, []);
 
   // Check permissions
