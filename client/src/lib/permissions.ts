@@ -114,9 +114,7 @@ export function hasAllPermissions(permissions: Permission[]): boolean {
   return permissions.every(permission => hasPermission(permission));
 }
 
-export function canAccessAdminConsole(): boolean {
-  return hasPermission('admin.view_console');
-}
+// Removed duplicate - using the version below that accepts userRole parameter
 
 export function canManageUsers(): boolean {
   return hasPermission('admin.manage_users');
@@ -136,6 +134,11 @@ export function canViewAllSchedules(): boolean {
 
 export function canExportReports(): boolean {
   return hasPermission('reports.export');
+}
+
+// Admin console access function
+export function canAccessAdminConsole(userRole?: UserRole): boolean {
+  return hasLegacyRolePermission(userRole, 'admin.view_console');
 }
 
 // Legacy functions for backward compatibility  
