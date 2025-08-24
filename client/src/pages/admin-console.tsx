@@ -32,6 +32,7 @@ export default function AdminConsole() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   // Load permissions on mount
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function AdminConsole() {
         if (permissionsRes.ok) {
           const permissions = await permissionsRes.json();
           setUserPermissions(permissions);
+          setPermissionsLoaded(true);
         }
       } catch (error) {
         console.error('Failed to load permissions:', error);
@@ -140,28 +142,28 @@ export default function AdminConsole() {
       name: 'Users',
       icon: Users,
       description: 'Manage system users and their access',
-      available: canManageUsers()
+      available: canManageUsers() || (user?.role === 'admin' || user?.role === 'master-admin')
     },
     {
       id: 'roles' as AdminView,
       name: 'Roles & Permissions',
       icon: Shield,
       description: 'Configure roles and permissions',
-      available: canManageRoles()
+      available: canManageRoles() || (user?.role === 'admin' || user?.role === 'master-admin')
     },
     {
       id: 'logs' as AdminView,
       name: 'System Logs',
       icon: Activity,
       description: 'View system logs and monitoring',
-      available: canAccessAdminConsole()
+      available: canAccessAdminConsole(user?.role as any) || (user?.role === 'admin' || user?.role === 'master-admin')
     },
     {
       id: 'settings' as AdminView,
       name: 'System Settings',
       icon: Settings,
       description: 'Configure system-wide settings',
-      available: false // TODO: Implement
+      available: user?.role === 'admin' || user?.role === 'master-admin'
     }
   ];
 
